@@ -17,57 +17,74 @@
     let
       inherit ((builtins.fromTOML (builtins.readFile ./Cargo.toml)).package) name;
 
-      system = "aarch64-darwin";
+      systems = [
+        "x86_64-darwin"
+        "aarch64-darwin"
+        "x86_64-linux"
+        "aarch64-linux"
+      ];
+      eachSystem =
+        with nixpkgs.lib;
+        f: foldAttrs mergeAttrs { } (map (s: mapAttrs (_: v: { ${s} = v; }) (f s)) systems);
       overlays = [ (import rust-overlay) ];
-      pkgs = import nixpkgs { inherit overlays system; };
-      toolchain = (pkgs.rust-bin.fromRustupToolchainFile ./rust-toolchain.toml);
-      rustPlatform =
-        let
-          pkgsCross = import nixpkgs {
-            inherit system;
-            crossSystem = {
-              inherit system;
-              rustc.config = "riscv32imc-unknown-none-elf";
-            };
-          };
-        in
-        pkgsCross.makeRustPlatform {
-          rustc = toolchain;
-          cargo = toolchain;
-        };
     in
-    {
-      packages.${system} = {
-        default = self.outputs.packages.${system}.${name};
-        ${name} = rustPlatform.buildRustPackage {
-          inherit name;
-          inherit ((builtins.fromTOML (builtins.readFile ./Cargo.toml)).package) version;
-          src = pkgs.lib.cleanSource ./.;
-          cargoLock.lockFile = ./Cargo.lock;
-          RUSTFLAGS = [
-            "-Clink-arg=-Tlinkall.x"
-            "-Clink-arg=-Trom_functions.x"
-          ];
-          buildInputs = with pkgs; [ libiconv ];
-          doCheck = false;
-          cargoBuildFeatures = [ "nix" ];
-          SSID = builtins.getEnv "SSID";
-          PASSWORD = builtins.getEnv "PASSWORD";
-        };
-      };
 
-      # nix develop -i -k SSID -k PASSWORD -c \
-      #   cargo build --target=riscv32imc-unknown-none-elf --release
-      devShells.${system}.default =
-        with pkgs;
-        mkShell {
-          buildInputs = [
-            toolchain
-            rustfmt
-            rustPackages.clippy
-            rust-analyzer
-            cargo-espflash
-          ];
+    (eachSystem (
+      system:
+      let
+        pkgs = import nixpkgs { inherit overlays system; };
+        toolchain = (pkgs.rust-bin.fromRustupToolchainFile ./rust-toolchain.toml);
+        rustPlatform =
+          let
+            pkgsCross = import nixpkgs {
+              inherit system;
+              crossSystem = {
+                inherit system;
+                rustc.config = "riscv32imc-unknown-none-elf";
+              };
+            };
+          in
+          pkgsCross.makeRustPlatform {
+            rustc = toolchain;
+            cargo = toolchain;
+          };
+      in
+      {
+        packages = {
+          default = self.outputs.packages.${system}.${name};
+          ${name} = rustPlatform.buildRustPackage {
+            inherit name;
+            inherit ((builtins.fromTOML (builtins.readFile ./Cargo.toml)).package) version;
+            src = pkgs.lib.cleanSource ./.;
+            cargoLock.lockFile = ./Cargo.lock;
+            RUSTFLAGS = [
+              "-Clink-arg=-Tlinkall.x"
+              "-Clink-arg=-Trom_functions.x"
+            ];
+            buildInputs = with pkgs; [ libiconv ];
+            doCheck = false;
+            cargoBuildFeatures = [ "nix" ];
+            SSID = builtins.getEnv "SSID";
+            PASSWORD = builtins.getEnv "PASSWORD";
+          };
         };
-    };
+
+        # nix develop -i -k SSID -k PASSWORD -c \
+        #   cargo build --target=riscv32imc-unknown-none-elf --release
+        devShells = {
+          default = self.outputs.devShells.${system}.${name};
+          ${name} =
+            with pkgs;
+            mkShell {
+              buildInputs = [
+                toolchain
+                rustfmt
+                rustPackages.clippy
+                rust-analyzer
+                cargo-espflash
+              ];
+            };
+        };
+      }
+    ));
 }
