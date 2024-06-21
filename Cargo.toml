@@ -27,6 +27,8 @@ smoltcp = { version = "0.11.0", default-features = false, features = [
     "socket-dhcpv4",
 ] }
 
+mqttrs = { version = "0.4", default-features = false }
+
 compiler_builtins = { version = "=0.1.109", optional = true }
 rustc-demangle = { version = "0.1.24", optional = true }
 object = { version = "=0.32.2", optional = true }
