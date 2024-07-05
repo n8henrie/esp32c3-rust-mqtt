@@ -5,49 +5,26 @@ edition = "2021"
 resolver = "2"
 
 [dependencies]
-esp-backtrace = { version = "0.11.1", features = [
-    "esp32c3",
-    "panic-handler",
-    "exception-handler",
-    "println",
-] }
-esp-hal = { version = "0.18", features = ["esp32c3"] }
-embedded-hal-nb = "1.0.0"
-esp-println = { version = "0.9.1", features = ["esp32c3", "uart"] }
-heapless = { version = "0.8.0", default-features = false }
-smoltcp = { version = "0.11.0", default-features = false, features = [
-    "proto-igmp",
-    "proto-ipv4",
-    "socket-tcp",
-    "socket-icmp",
-    "socket-udp",
-    "medium-ethernet",
-    "proto-dhcpv4",
-    "socket-raw",
-    "socket-dhcpv4",
-] }
+embassy-executor = { version = "0.5", features = [ "integrated-timers"] }
+embassy-net = { version = "0.4", features = ["tcp", "udp", "dhcpv4", "medium-ethernet", "proto-ipv6", "log", "dns"] }
+embassy-time       = { version = "0.3" }
+embedded-can       = { version = "0.4" }
+embedded-hal       = { version = "1" }
+embedded-hal-async = { version = "1" }
+embedded-hal-nb    = { version = "1" }
+embedded-io = "0.6"
+embedded-svc = { version = "0.27", default-features = false}
+esp-backtrace = { version = "0.12", features = ["esp32c3", "println", "panic-handler", "exception-handler" ] }
+esp-hal = { version = "0.18", features = ["esp32c3", "async" ] }
+esp-println = { version = "0.9", features = ["esp32c3","log"] }
+esp-wifi = { version = "0.6", features = ["esp32c3", "async", "embassy-net", "wifi", "ipv6"] }
+heapless = "0.8"
+log = "0.4"
+nb = "1"
+static_cell = { version = "2", features = ["nightly"] }
 
-compiler_builtins = { version = "=0.1.109", optional = true }
-rustc-demangle = { version = "0.1.24", optional = true }
-object = { version = "=0.32.2", optional = true }
-libc = { version = "=0.2.153", optional = true }
-dlmalloc = { version = "0.2.6", optional = true }
-addr2line = { version = "=0.21.0", optional = true }
-miniz_oxide = { version = "=0.7.2", optional = true }
-hermit-abi = { version = "0.3.9", optional = true }
-r-efi = { version = "=4.4.0", optional = true }
-r-efi-alloc = { version = "1.0.0", optional = true }
-wasi = { version = "=0.11.0", optional = true }
-fortanix-sgx-abi = { version = "0.5.0", optional = true }
-getopts = { version = "0.2.21", optional = true }
-allocator-api2 = { version = "0.2.18", optional = true }
-unwinding = { version = "0.2.1", optional = true }
-memchr = { version = "=2.5.0", optional = true }
-embedded-io = "0.6.1"
-
-[dependencies.esp-wifi]
-version = "0.6"
-features = ["esp32c3", "wifi-default"]
+rust-mqtt = { version = "0.3", default-features = false }
+esp-hal-embassy = { version = "0.1.0", features = ["esp32c3", "time-timg0"] }
 
 [profile.dev.package.esp-wifi]
 opt-level = 3
@@ -59,21 +36,5 @@ lto = "off"
 
 [features]
 nix =  [
-    "dep:allocator-api2", 
-    "dep:compiler_builtins", 
-    "dep:rustc-demangle", 
-    "dep:object", 
-    "dep:libc", 
-    "dep:dlmalloc", 
-    "dep:addr2line", 
-    "dep:miniz_oxide", 
-    "dep:hermit-abi", 
-    "dep:r-efi", 
-    "dep:r-efi-alloc", 
-    "dep:wasi", 
-    "dep:fortanix-sgx-abi", 
-    "dep:getopts", 
-    "dep:allocator-api2", 
-    "dep:unwinding", 
-    "dep:memchr",
+    # "dep:allocator-api2", 
 ]
