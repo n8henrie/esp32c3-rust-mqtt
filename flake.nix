@@ -1,7 +1,8 @@
 {
   inputs = {
+    nixpkgs.url = "github:nixos/nixpkgs";
     # https://github.com/NixOS/nixpkgs/issues/180771#issuecomment-2124815168
-    nixpkgs.url = "github:nixos/nixpkgs/release-23.05";
+    nixpkgs-stable.url = "github:nixos/nixpkgs/release-23.05";
     rust-overlay = {
       url = "github:oxalica/rust-overlay";
       inputs.nixpkgs.follows = "nixpkgs";
@@ -9,10 +10,11 @@
   };
 
   outputs =
-    {
-      self,
-      nixpkgs,
-      rust-overlay,
+    { self
+    , nixpkgs
+    , nixpkgs-stable
+    , rust-overlay
+    ,
     }:
     let
       inherit ((builtins.fromTOML (builtins.readFile ./Cargo.toml)).package) name;
@@ -28,15 +30,14 @@
         f: foldAttrs mergeAttrs { } (map (s: mapAttrs (_: v: { ${s} = v; }) (f s)) systems);
       overlays = [ (import rust-overlay) ];
     in
-
-    (eachSystem (
+    eachSystem (
       system:
       let
         pkgs = import nixpkgs { inherit overlays system; };
         toolchain = (pkgs.rust-bin.fromRustupToolchainFile ./rust-toolchain.toml);
         rustPlatform =
           let
-            pkgsCross = import nixpkgs {
+            pkgsCross = import nixpkgs-stable {
               inherit system;
               crossSystem = {
                 inherit system;
@@ -52,21 +53,33 @@
       {
         packages = {
           default = self.outputs.packages.${system}.${name};
-          ${name} = rustPlatform.buildRustPackage {
-            inherit name;
-            inherit ((builtins.fromTOML (builtins.readFile ./Cargo.toml)).package) version;
-            src = pkgs.lib.cleanSource ./.;
-            cargoLock.lockFile = ./Cargo.lock;
-            RUSTFLAGS = [
-              "-Clink-arg=-Tlinkall.x"
-              "-Clink-arg=-Trom_functions.x"
-            ];
-            buildInputs = with pkgs; [ libiconv ];
-            doCheck = false;
-            cargoBuildFeatures = [ "nix" ];
-            SSID = builtins.getEnv "SSID";
-            PASSWORD = builtins.getEnv "PASSWORD";
-          };
+          ${name} =
+            let
+              nonemptyEnvVar = name:
+                let var = builtins.getEnv name;
+                in if var == "" then abort "Environment variable ${name} is empty but required (make sure to use `--impure`)"
+                else var;
+            in
+            rustPlatform.buildRustPackage {
+              inherit name;
+              inherit ((builtins.fromTOML (builtins.readFile ./Cargo.toml)).package) version;
+              src = pkgs.lib.cleanSource ./.;
+              cargoLock.lockFile = ./Cargo.lock;
+              RUSTFLAGS = [
+                "-C link-arg=-Tlinkall.x"
+                "-C link-arg=-Trom_functions.x"
+                "-C force-frame-pointers"
+              ];
+              doCheck = false;
+
+              SSID = nonemptyEnvVar "SSID";
+              PASSWORD = nonemptyEnvVar "PASSWORD";
+              PUBLISH_TOPIC = nonemptyEnvVar "PUBLISH_TOPIC";
+              RECEIVE_TOPIC = nonemptyEnvVar "RECEIVE_TOPIC";
+              ESPFLASH_PORT = nonemptyEnvVar "ESPFLASH_PORT";
+
+              EMBASSY_EXECUTOR_TASK_ARENA_SIZE = "16384";
+            };
         };
 
         # nix develop -i -k SSID -k PASSWORD -c \
@@ -85,6 +98,17 @@
               ];
             };
         };
+
+        apps.default =
+          let
+            script = pkgs.writeShellScriptBin "run" ''
+              ${pkgs.espflash}/bin/espflash flash --monitor ${self.outputs.packages.${system}.${name}}/bin/${name}
+            '';
+          in
+          {
+            type = "app";
+            program = "${script}/bin/run";
+          };
       }
-    ));
+    );
 }

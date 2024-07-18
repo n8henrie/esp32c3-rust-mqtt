@@ -1,4 +1,4 @@
-# esp32-rust-mqtt [![Build project with nix](https://github.com/n8henrie/esp32-rust-mqtt/actions/workflows/build.yml/badge.svg)](https://github.com/n8henrie/esp32-rust-mqtt/actions/workflows/build.yml)
+# esp32c3-rust-mqtt [![Build project with nix](https://github.com/n8henrie/esp32c3-rust-mqtt/actions/workflows/build.yml/badge.svg)](https://github.com/n8henrie/esp32c3-rust-mqtt/actions/workflows/build.yml)
 
 This will eventually be a little rust-based esp32 project for connecting up
 esp32 to mqtt, using nix as a build system. I'm hoping to have it build from

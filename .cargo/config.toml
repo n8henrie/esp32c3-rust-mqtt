@@ -1,9 +1,9 @@
 [target.riscv32imc-unknown-none-elf]
 runner = "espflash flash --monitor"
-
 rustflags = [
     "-C", "link-arg=-Tlinkall.x",
     "-C", "link-arg=-Trom_functions.x",
+    "-C", "force-frame-pointers",
 ]
 
 [build]
@@ -11,3 +11,6 @@ target = "riscv32imc-unknown-none-elf"
 
 [unstable]
 build-std = [ "core" ]
+
+[env]
+EMBASSY_EXECUTOR_TASK_ARENA_SIZE = "16384"
