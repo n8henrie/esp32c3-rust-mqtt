@@ -28,7 +28,10 @@ use esp_wifi::{
 
 use rust_mqtt::{
     client::{client::MqttClient, client_config::ClientConfig},
-    packet::v5::{publish_packet::QualityOfService::QoS1, reason_codes::ReasonCode},
+    packet::v5::{
+        publish_packet::QualityOfService::{self, QoS1},
+        reason_codes::ReasonCode,
+    },
     utils::rng_generator::CountingRng,
 };
 
@@ -50,6 +53,9 @@ const PUBLISH_TOPIC: &str = "PUBLISH_2293492834"; //env!("PUBLISH_TOPIC");
 
 // #TODO: consider thiserror once no_std compatible
 // https://github.com/dtolnay/thiserror/pull/304
+
+#[allow(unused)]
+#[derive(Debug)]
 enum Error {
     MqttNetwork,
     Mqtt(rust_mqtt::packet::v5::reason_codes::ReasonCode),
@@ -136,24 +142,82 @@ async fn mkclient<'a, T: embassy_net::driver::Driver>(
     client
 }
 
+struct Client<'a> {
+    client: MqttClient<
+        'a,
+        embassy_net::tcp::TcpSocket<'a>,
+        5,
+        rust_mqtt::utils::rng_generator::CountingRng,
+    >,
+}
+
+struct Buffers {
+    rx: [u8; 4096],
+    tx: [u8; 4096],
+    recv: [u8; 80],
+    write: [u8; 80],
+}
+impl Buffers {
+    fn new() -> Self {
+        Self {
+            rx: [0; 4096],
+            tx: [0; 4096],
+            recv: [0; 80],
+            write: [0; 80],
+        }
+    }
+}
+
+impl<'a> Client<'a> {
+    async fn new<T>(stack: &'static embassy_net::Stack<T>, buf: &'a mut Buffers) -> Client<'a>
+    where
+        T: embassy_net::driver::Driver,
+    {
+        let client = mkclient(
+            stack,
+            &mut buf.rx,
+            &mut buf.tx,
+            &mut buf.recv,
+            &mut buf.write,
+        )
+        .await;
+
+        Self { client }
+    }
+
+    async fn subscribe_to_topic(&mut self, topic: &str) -> Result<()> {
+        self.client
+            .subscribe_to_topic(topic)
+            .await
+            .map_err(Into::into)
+    }
+
+    async fn receive_message(&mut self) -> Result<(&str, &[u8])> {
+        self.client.receive_message().await.map_err(Into::into)
+    }
+
+    async fn send_message(
+        &mut self,
+        topic_name: &str,
+        message: &[u8],
+        qos: QualityOfService,
+        retain: bool,
+    ) -> Result<()> {
+        self.client
+            .send_message(topic_name, message, qos, retain)
+            .await
+            .map_err(Into::into)
+    }
+}
+
 #[embassy_executor::task]
 async fn receive(
     stack: &'static embassy_net::Stack<impl embassy_net::driver::Driver>,
     mut led: AnyOutput<'static>,
 ) {
-    let mut rx_buffer = [0; 4096];
-    let mut tx_buffer = [0; 4096];
-    let mut recv_buffer = [0; 80];
-    let mut write_buffer = [0; 80];
+    let mut buf = Buffers::new();
+    let mut client = Client::new(stack, &mut buf).await;
 
-    let mut client = mkclient(
-        stack,
-        &mut rx_buffer,
-        &mut tx_buffer,
-        &mut recv_buffer,
-        &mut write_buffer,
-    )
-    .await;
     println!("Subscribing to topic {RECEIVE_TOPIC:?}");
     client
         .subscribe_to_topic(RECEIVE_TOPIC)
@@ -163,7 +227,7 @@ async fn receive(
     loop {
         let (_topic, message) = match client.receive_message().await {
             Ok((topic, message)) => (topic, message),
-            Err(ReasonCode::NetworkError) => {
+            Err(Error::Mqtt(ReasonCode::NetworkError)) => {
                 // no message to receive?
                 continue;
             }
@@ -186,18 +250,9 @@ async fn receive(
 
 #[embassy_executor::task]
 async fn send(stack: &'static embassy_net::Stack<impl embassy_net::driver::Driver>) {
-    let mut rx_buffer = [0; 4096];
-    let mut tx_buffer = [0; 4096];
-    let mut recv_buffer = [0; 80];
-    let mut write_buffer = [0; 80];
-    let mut client = mkclient(
-        stack,
-        &mut rx_buffer,
-        &mut tx_buffer,
-        &mut recv_buffer,
-        &mut write_buffer,
-    )
-    .await;
+    let mut buf = Buffers::new();
+    let mut client = Client::new(stack, &mut buf).await;
+
     println!("Subscribing to topic {RECEIVE_TOPIC:?}");
 
     loop {
