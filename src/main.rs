@@ -43,10 +43,10 @@ macro_rules! mk_static {
 
 // const MQTT_HOST: &str = "test.mosquitto.org";
 const MQTT_HOST: &str = "natepro.home.arpa";
-const SSID: &str = env!("SSID");
-const PASSWORD: &str = env!("PASSWORD");
-const RECEIVE_TOPIC: &str = env!("RECEIVE_TOPIC");
-const PUBLISH_TOPIC: &str = env!("PUBLISH_TOPIC");
+const SSID: &str = "foo"; // env!("SSID");
+const PASSWORD: &str = "bar"; // env!("PASSWORD");
+const RECEIVE_TOPIC: &str = "RECEIVE_2293492834"; // env!("RECEIVE_TOPIC");
+const PUBLISH_TOPIC: &str = "PUBLISH_2293492834"; //env!("PUBLISH_TOPIC");
 
 // #TODO: consider thiserror once no_std compatible
 // https://github.com/dtolnay/thiserror/pull/304
@@ -74,18 +74,143 @@ impl core::fmt::Display for Error {
 
 type Result<T> = core::result::Result<T, Error>;
 
-#[embassy_executor::task]
-async fn receive_message(
-    client: &'static mut MqttClient<'static, TcpSocket<'static>, 5, CountingRng>,
-) {
-    let (topic, message) = client.receive_message().await.expect("something broke");
-    println!("topic: {topic:?}");
-    println!("message: {message:?}");
+async fn mkclient<'a, T: embassy_net::driver::Driver>(
+    stack: &'static embassy_net::Stack<T>,
+    rx_buffer: &'a mut [u8],
+    tx_buffer: &'a mut [u8],
+    recv_buffer: &'a mut [u8],
+    write_buffer: &'a mut [u8],
+) -> MqttClient<'a, embassy_net::tcp::TcpSocket<'a>, 5, rust_mqtt::utils::rng_generator::CountingRng>
+{
+    let mut socket = TcpSocket::new(stack, rx_buffer, tx_buffer);
+    socket.set_timeout(Some(embassy_time::Duration::from_secs(10)));
+
+    loop {
+        let address = match stack
+            .dns_query(MQTT_HOST, DnsQueryType::A)
+            .await
+            .map(|a| a[0])
+        {
+            Ok(address) => address,
+            Err(e) => {
+                println!("DNS lookup error: {e:?}");
+                continue;
+            }
+        };
+
+        let remote_endpoint = (address, 1883);
+        println!("connecting to {remote_endpoint:?}...");
+        let connection = socket.connect(remote_endpoint).await;
+        if let Err(e) = connection {
+            println!("connect error: {:?}", e);
+            continue;
+        }
+        println!("connected");
+        break;
+    }
+
+    let mut config = ClientConfig::new(
+        rust_mqtt::client::client_config::MqttVersion::MQTTv5,
+        CountingRng(20000),
+    );
+    config.add_max_subscribe_qos(rust_mqtt::packet::v5::publish_packet::QualityOfService::QoS1);
+    config.add_client_id("clientId-8rhWgBODCl");
+    config.max_packet_size = 100;
+
+    // MqttClient<'a, T: Read + Write, const MAX_PROPERTIES: usize, R: RngCore>
+    let mut client = MqttClient::<_, 5, _>::new(socket, write_buffer, 80, recv_buffer, 80, config);
+
+    match client.connect_to_broker().await {
+        Ok(()) => {
+            println!("Connected to broker");
+            // break;
+        }
+        Err(mqtt_error) => {
+            if let ReasonCode::NetworkError = mqtt_error {
+                println!("MQTT Network Error");
+            } else {
+                println!("Other MQTT Error: {:?}", mqtt_error);
+            }
+        }
+    };
+    client
 }
 
-fn set_onboard_led(led: &mut AnyOutput<'static>, level: Level) {
-    println!("Setting onboard led to {level:?}");
-    led.set_level(level);
+#[embassy_executor::task]
+async fn receive(
+    stack: &'static embassy_net::Stack<impl embassy_net::driver::Driver>,
+    mut led: AnyOutput<'static>,
+) {
+    let mut rx_buffer = [0; 4096];
+    let mut tx_buffer = [0; 4096];
+    let mut recv_buffer = [0; 80];
+    let mut write_buffer = [0; 80];
+
+    let mut client = mkclient(
+        stack,
+        &mut rx_buffer,
+        &mut tx_buffer,
+        &mut recv_buffer,
+        &mut write_buffer,
+    )
+    .await;
+    println!("Subscribing to topic {RECEIVE_TOPIC:?}");
+    client
+        .subscribe_to_topic(RECEIVE_TOPIC)
+        .await
+        .expect("Error subscribing to topic: {e:?}");
+
+    loop {
+        let (_topic, message) = match client.receive_message().await {
+            Ok((topic, message)) => (topic, message),
+            Err(ReasonCode::NetworkError) => {
+                // no message to receive?
+                continue;
+            }
+            Err(e) => {
+                println!("Error receiving message: {e:?}");
+                continue;
+            }
+        };
+
+        let c: Option<char> = message.iter().next().map(|num| char::from(*num));
+        match c {
+            Some('1') => led.set_level(Level::Low),
+            Some('0') => led.set_level(Level::High),
+            _ => {
+                println!("Invalid message: {message:?}");
+            }
+        }
+    }
+}
+
+#[embassy_executor::task]
+async fn send(stack: &'static embassy_net::Stack<impl embassy_net::driver::Driver>) {
+    let mut rx_buffer = [0; 4096];
+    let mut tx_buffer = [0; 4096];
+    let mut recv_buffer = [0; 80];
+    let mut write_buffer = [0; 80];
+    let mut client = mkclient(
+        stack,
+        &mut rx_buffer,
+        &mut tx_buffer,
+        &mut recv_buffer,
+        &mut write_buffer,
+    )
+    .await;
+    println!("Subscribing to topic {RECEIVE_TOPIC:?}");
+
+    loop {
+        println!("Publishing message to topic {PUBLISH_TOPIC:?}");
+        match client.send_message(PUBLISH_TOPIC, b"42", QoS1, false).await {
+            Ok(()) => {
+                println!("Message sent");
+            }
+            Err(e) => {
+                println!("Error sending message: {e:?}");
+            }
+        }
+    }
 }
 
 #[main]
@@ -142,9 +267,6 @@ async fn main(spawner: Spawner) {
     spawner.spawn(connection(controller)).ok();
     spawner.spawn(net_task(stack)).ok();
 
-    let mut rx_buffer = [0; 4096];
-    let mut tx_buffer = [0; 4096];
-
     loop {
         if stack.is_link_up() {
             break;
@@ -161,42 +283,6 @@ async fn main(spawner: Spawner) {
         Timer::after(Duration::from_millis(500)).await;
     }
 
-    println!("Waiting to get IP address...");
-    loop {
-        if let Some(config) = stack.config_v4() {
-            println!("Got IP: {}", config.address); //dhcp IP address
-            break;
-        }
-        Timer::after(Duration::from_millis(500)).await;
-    }
-
-    let mut socket = TcpSocket::new(stack, &mut rx_buffer, &mut tx_buffer);
-
-    socket.set_timeout(Some(embassy_time::Duration::from_secs(10)));
-
-    loop {
-        let address = match stack
-            .dns_query(MQTT_HOST, DnsQueryType::A)
-            .await
-            .map(|a| a[0])
-        {
-            Ok(address) => address,
-            Err(e) => {
-                println!("DNS lookup error: {e:?}");
-                continue;
-            }
-        };
-
-        let remote_endpoint = (address, 1883);
-        println!("connecting to {remote_endpoint:?}...");
-        let connection = socket.connect(remote_endpoint).await;
-        if let Err(e) = connection {
-            println!("connect error: {:?}", e);
-            continue;
-        }
-        println!("connected");
-        break;
-    }
     let io = Io::new(peripherals.GPIO, peripherals.IO_MUX);
     let mut led = AnyOutput::new(io.pins.gpio8, Level::Low);
 
@@ -210,74 +296,8 @@ async fn main(spawner: Spawner) {
     // On my ESP32C3, the onboard LED is active low
     led.set_high();
 
-    let mut config = ClientConfig::new(
-        rust_mqtt::client::client_config::MqttVersion::MQTTv5,
-        CountingRng(20000),
-    );
-    config.add_max_subscribe_qos(rust_mqtt::packet::v5::publish_packet::QualityOfService::QoS1);
-    config.add_client_id("clientId-8rhWgBODCl");
-    config.max_packet_size = 100;
-    let mut recv_buffer = [0; 80];
-    let mut write_buffer = [0; 80];
-
-    // MqttClient<'a, T: Read + Write, const MAX_PROPERTIES: usize, R: RngCore>
-    let mut client =
-        MqttClient::<_, 5, _>::new(socket, &mut write_buffer, 80, &mut recv_buffer, 80, config);
-
-    match client.connect_to_broker().await {
-        Ok(()) => {
-            println!("Connected to broker");
-            // break;
-        }
-        Err(mqtt_error) => {
-            if let ReasonCode::NetworkError = mqtt_error {
-                println!("MQTT Network Error");
-            } else {
-                println!("Other MQTT Error: {:?}", mqtt_error);
-            }
-        }
-    };
-
-    println!("Subscribing to topic {RECEIVE_TOPIC:?}");
-    client
-        .subscribe_to_topic(RECEIVE_TOPIC)
-        .await
-        .expect("Error subscribing to topic: {e:?}");
-
-    loop {
-        Timer::after(Duration::from_millis(100)).await;
-
-        println!("Publishing message to topic {PUBLISH_TOPIC:?}");
-        match client.send_message(PUBLISH_TOPIC, b"42", QoS1, false).await {
-            Ok(()) => {
-                println!("Message sent");
-            }
-            Err(e) => {
-                println!("Error sending message: {e:?}");
-            }
-        }
-
-        let (_topic, message) = match client.receive_message().await {
-            Ok((topic, message)) => (topic, message),
-            Err(ReasonCode::NetworkError) => {
-                // no message to receive?
-                continue;
-            }
-            Err(e) => {
-                println!("Error receiving message: {e:?}");
-                continue;
-            }
-        };
-
-        let c: Option<char> = message.iter().next().map(|num| char::from(*num));
-        match c {
-            Some('1') => set_onboard_led(&mut led, Level::Low),
-            Some('0') => set_onboard_led(&mut led, Level::High),
-            _ => {
-                println!("Invalid message: {message:?}");
-            }
-        }
-    }
+    spawner.spawn(receive(stack, led)).ok();
+    spawner.spawn(send(stack)).ok();
 }
 
 pub async fn sleep(millis: u32) {
