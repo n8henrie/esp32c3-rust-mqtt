@@ -46,8 +46,8 @@ macro_rules! mk_static {
 
 // const MQTT_HOST: &str = "test.mosquitto.org";
 const MQTT_HOST: &str = "natepro.home.arpa";
-const SSID: &str = "foo"; // env!("SSID");
-const PASSWORD: &str = "bar"; // env!("PASSWORD");
+const SSID: &str = "Land_of_Mañana"; // env!("SSID");
+const PASSWORD: &str = "[manifest_@_banana]"; // env!("PASSWORD");
 const RECEIVE_TOPIC: &str = "RECEIVE_2293492834"; // env!("RECEIVE_TOPIC");
 const PUBLISH_TOPIC: &str = "PUBLISH_2293492834"; //env!("PUBLISH_TOPIC");
 
@@ -80,76 +80,15 @@ impl core::fmt::Display for Error {
 
 type Result<T> = core::result::Result<T, Error>;
 
-async fn mkclient<'a, T: embassy_net::driver::Driver>(
-    stack: &'static embassy_net::Stack<T>,
-    rx_buffer: &'a mut [u8],
-    tx_buffer: &'a mut [u8],
-    recv_buffer: &'a mut [u8],
-    write_buffer: &'a mut [u8],
-) -> MqttClient<'a, embassy_net::tcp::TcpSocket<'a>, 5, rust_mqtt::utils::rng_generator::CountingRng>
-{
-    let mut socket = TcpSocket::new(stack, rx_buffer, tx_buffer);
-    socket.set_timeout(Some(embassy_time::Duration::from_secs(10)));
-
-    loop {
-        let address = match stack
-            .dns_query(MQTT_HOST, DnsQueryType::A)
-            .await
-            .map(|a| a[0])
-        {
-            Ok(address) => address,
-            Err(e) => {
-                println!("DNS lookup error: {e:?}");
-                continue;
-            }
-        };
-
-        let remote_endpoint = (address, 1883);
-        println!("connecting to {remote_endpoint:?}...");
-        let connection = socket.connect(remote_endpoint).await;
-        if let Err(e) = connection {
-            println!("connect error: {:?}", e);
-            continue;
-        }
-        println!("connected");
-        break;
-    }
-
-    let mut config = ClientConfig::new(
-        rust_mqtt::client::client_config::MqttVersion::MQTTv5,
-        CountingRng(20000),
-    );
-    config.add_max_subscribe_qos(rust_mqtt::packet::v5::publish_packet::QualityOfService::QoS1);
-    config.add_client_id("clientId-8rhWgBODCl");
-    config.max_packet_size = 100;
-
-    // MqttClient<'a, T: Read + Write, const MAX_PROPERTIES: usize, R: RngCore>
-    let mut client = MqttClient::<_, 5, _>::new(socket, write_buffer, 80, recv_buffer, 80, config);
-
-    match client.connect_to_broker().await {
-        Ok(()) => {
-            println!("Connected to broker");
-            // break;
-        }
-        Err(mqtt_error) => {
-            if let ReasonCode::NetworkError = mqtt_error {
-                println!("MQTT Network Error");
-            } else {
-                println!("Other MQTT Error: {:?}", mqtt_error);
-            }
-        }
-    };
-    client
-}
-
-struct Client<'a> {
-    client: MqttClient<
-        'a,
-        embassy_net::tcp::TcpSocket<'a>,
-        5,
-        rust_mqtt::utils::rng_generator::CountingRng,
-    >,
-}
+// async fn mkclient<'a, T: embassy_net::driver::Driver>(
+//     stack: &'static embassy_net::Stack<T>,
+//     rx_buffer: &'a mut [u8],
+//     tx_buffer: &'a mut [u8],
+//     recv_buffer: &'a mut [u8],
+//     write_buffer: &'a mut [u8],
+// ) -> MqttClient<'a, embassy_net::tcp::TcpSocket<'a>, 5, rust_mqtt::utils::rng_generator::CountingRng>
+// {
+// }
 
 struct Buffers {
     rx: [u8; 4096],
@@ -157,6 +96,7 @@ struct Buffers {
     recv: [u8; 80],
     write: [u8; 80],
 }
+
 impl Buffers {
     fn new() -> Self {
         Self {
@@ -167,20 +107,72 @@ impl Buffers {
         }
     }
 }
+struct Client<'a> {
+    client: MqttClient<
+        'a,
+        embassy_net::tcp::TcpSocket<'a>,
+        5,
+        rust_mqtt::utils::rng_generator::CountingRng,
+    >,
+}
 
 impl<'a> Client<'a> {
     async fn new<T>(stack: &'static embassy_net::Stack<T>, buf: &'a mut Buffers) -> Client<'a>
     where
         T: embassy_net::driver::Driver,
     {
-        let client = mkclient(
-            stack,
-            &mut buf.rx,
-            &mut buf.tx,
-            &mut buf.recv,
-            &mut buf.write,
-        )
-        .await;
+        let mut socket = TcpSocket::new(stack, &mut buf.rx, &mut buf.tx);
+        socket.set_timeout(Some(embassy_time::Duration::from_secs(10)));
+
+        loop {
+            let address = match stack
+                .dns_query(MQTT_HOST, DnsQueryType::A)
+                .await
+                .map(|a| a[0])
+            {
+                Ok(address) => address,
+                Err(e) => {
+                    println!("DNS lookup error: {e:?}");
+                    continue;
+                }
+            };
+
+            let remote_endpoint = (address, 1883);
+            println!("connecting to {remote_endpoint:?}...");
+            let connection = socket.connect(remote_endpoint).await;
+            if let Err(e) = connection {
+                println!("connect error: {:?}", e);
+                continue;
+            }
+            println!("connected");
+            break;
+        }
+
+        let mut config = ClientConfig::new(
+            rust_mqtt::client::client_config::MqttVersion::MQTTv5,
+            CountingRng(20000),
+        );
+        config.add_max_subscribe_qos(rust_mqtt::packet::v5::publish_packet::QualityOfService::QoS1);
+        config.add_client_id("clientId-8rhWgBODCl");
+        config.max_packet_size = 100;
+
+        // MqttClient<'a, T: Read + Write, const MAX_PROPERTIES: usize, R: RngCore>
+        let mut client =
+            MqttClient::<_, 5, _>::new(socket, &mut buf.write, 80, &mut buf.recv, 80, config);
+
+        match client.connect_to_broker().await {
+            Ok(()) => {
+                println!("Connected to broker");
+                // break;
+            }
+            Err(mqtt_error) => {
+                if let ReasonCode::NetworkError = mqtt_error {
+                    println!("MQTT Network Error");
+                } else {
+                    println!("Other MQTT Error: {:?}", mqtt_error);
+                }
+            }
+        };
 
         Self { client }
     }
