@@ -8,17 +8,12 @@ use embassy_time::{Duration, Timer};
 
 use esp_backtrace as _;
 use esp_hal::{
-    clock::ClockControl,
-    gpio::{AnyOutput, Io, Level},
-    peripherals::Peripherals,
-    prelude::*,
+    gpio::{Io, Level, Output},
     rng::Rng,
-    system::SystemControl,
-    timer::{ErasedTimer, OneShotTimer, PeriodicTimer},
+    timer::timg::TimerGroup,
 };
 use esp_println::println;
 use esp_wifi::{
-    initialize,
     wifi::{
         ClientConfiguration, Configuration, WifiController, WifiDevice, WifiEvent, WifiStaDevice,
         WifiState,
@@ -44,12 +39,11 @@ macro_rules! mk_static {
     }};
 }
 
-// const MQTT_HOST: &str = "test.mosquitto.org";
-const MQTT_HOST: &str = "natepro.home.arpa";
-const SSID: &str = "Land_of_Mañana"; // env!("SSID");
-const PASSWORD: &str = "[manifest_@_banana]"; // env!("PASSWORD");
-const RECEIVE_TOPIC: &str = "RECEIVE_2293492834"; // env!("RECEIVE_TOPIC");
-const PUBLISH_TOPIC: &str = "PUBLISH_2293492834"; //env!("PUBLISH_TOPIC");
+const MQTT_HOST: &str = env!("MQTT_HOST");
+const SSID: &str = env!("SSID");
+const PASSWORD: &str = env!("PASSWORD");
+const PUBLISH_TOPIC: &str = env!("PUBLISH_TOPIC");
+const RECEIVE_TOPIC: &str = env!("RECEIVE_TOPIC");
 
 // #TODO: consider thiserror once no_std compatible
 // https://github.com/dtolnay/thiserror/pull/304
@@ -121,9 +115,14 @@ impl<'a> Client<'a> {
     where
         T: embassy_net::driver::Driver,
     {
+        println!("Creating client");
+
+        // Crashes here
         let mut socket = TcpSocket::new(stack, &mut buf.rx, &mut buf.tx);
+        println!("Setting timeout");
         socket.set_timeout(Some(embassy_time::Duration::from_secs(10)));
 
+        println!("Getting address");
         loop {
             let address = match stack
                 .dns_query(MQTT_HOST, DnsQueryType::A)
@@ -204,8 +203,10 @@ impl<'a> Client<'a> {
 
 #[embassy_executor::task]
 async fn receive(
-    stack: &'static embassy_net::Stack<impl embassy_net::driver::Driver>,
-    mut led: AnyOutput<'static>,
+    // stack: &'static embassy_net::Stack<impl embassy_net::driver::Driver>,
+    stack: &'static embassy_net::Stack<WifiDevice<'static, esp_wifi::wifi::WifiStaDevice>>,
+    // mut led: AnyOutput<'static>,
+    mut led: Output<'static>,
 ) {
     let mut buf = Buffers::new();
     let mut client = Client::new(stack, &mut buf).await;
@@ -241,7 +242,10 @@ async fn receive(
 }
 
 #[embassy_executor::task]
-async fn send(stack: &'static embassy_net::Stack<impl embassy_net::driver::Driver>) {
+// async fn send(stack: &'static embassy_net::Stack<impl embassy_net::driver::Driver>) {
+async fn send(
+    stack: &'static embassy_net::Stack<WifiDevice<'static, esp_wifi::wifi::WifiStaDevice>>,
+) {
     let mut buf = Buffers::new();
     let mut client = Client::new(stack, &mut buf).await;
 
@@ -260,26 +264,20 @@ async fn send(stack: &'static embassy_net::Stack<impl embassy_net::driver::Drive
     }
 }
 
-#[main]
+// #[main]
+#[esp_hal_embassy::main]
 async fn main(spawner: Spawner) {
     esp_println::logger::init_logger_from_env();
 
-    let peripherals = Peripherals::take();
+    let peripherals = esp_hal::init(esp_hal::Config::default());
 
-    let system = SystemControl::new(peripherals.SYSTEM);
-    let clocks = ClockControl::max(system.clock_control).freeze();
-
-    let timer = PeriodicTimer::new(
-        esp_hal::timer::timg::TimerGroup::new(peripherals.TIMG0, &clocks, None)
-            .timer0
-            .into(),
-    );
-    let init = initialize(
+    let timg0 = TimerGroup::new(peripherals.TIMG0);
+    let init = esp_wifi::init(
         EspWifiInitFor::Wifi,
-        timer,
+        timg0.timer0,
         Rng::new(peripherals.RNG),
         peripherals.RADIO_CLK,
-        &clocks,
+        // &clocks,
     )
     .unwrap();
 
@@ -287,26 +285,19 @@ async fn main(spawner: Spawner) {
     let (wifi_interface, controller) =
         esp_wifi::wifi::new_with_mode(&init, wifi, WifiStaDevice).unwrap();
 
-    let timg1 = esp_hal::timer::timg::TimerGroup::new(peripherals.TIMG1, &clocks, None);
-    esp_hal_embassy::init(
-        &clocks,
-        mk_static!(
-            [OneShotTimer<ErasedTimer>; 1],
-            [OneShotTimer::new(timg1.timer0.into())]
-        ),
-    );
+    let timg1 = TimerGroup::new(peripherals.TIMG1);
+    esp_hal_embassy::init(timg1.timer0);
 
     let config = Config::dhcpv4(DhcpConfig::default());
 
     let seed = 1234;
 
-    // Init network stack
     let stack = &*mk_static!(
         Stack<WifiDevice<'_, WifiStaDevice>>,
         Stack::new(
             wifi_interface,
             config,
-            mk_static!(StackResources<3>, StackResources::<3>::new()),
+            mk_static!(StackResources<4>, StackResources::<4>::new()),
             seed
         )
     );
@@ -314,12 +305,7 @@ async fn main(spawner: Spawner) {
     spawner.spawn(connection(controller)).ok();
     spawner.spawn(net_task(stack)).ok();
 
-    loop {
-        if stack.is_link_up() {
-            break;
-        }
-        Timer::after(Duration::from_millis(500)).await;
-    }
+    stack.wait_config_up().await;
 
     println!("Waiting to get IP address...");
     loop {
@@ -331,7 +317,7 @@ async fn main(spawner: Spawner) {
     }
 
     let io = Io::new(peripherals.GPIO, peripherals.IO_MUX);
-    let mut led = AnyOutput::new(io.pins.gpio8, Level::Low);
+    let mut led = Output::new(io.pins.gpio8, Level::Low);
 
     // Flash the onboard led to show that we have the pin right
     // and to indicate network connection
