@@ -80,11 +80,11 @@
             with pkgs;
             mkShell {
               buildInputs = [
-                toolchain
-                rustfmt
-                rustPackages.clippy
-                rust-analyzer
                 cargo-espflash
+                rust-analyzer
+                rustPackages.clippy
+                rustfmt
+                toolchain
               ];
             };
         };
