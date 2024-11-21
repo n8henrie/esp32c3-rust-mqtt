@@ -10,10 +10,10 @@ embassy-net = { version = "0.4", features = ["tcp", "udp", "dhcpv4", "medium-eth
 embassy-time       = { version = "0.3" }
 embedded-io-async = "0.6"
 esp-backtrace = { version = "0.14", features = ["esp32c3", "println", "panic-handler", "exception-handler" ] }
-esp-hal = { version = "0.21", features = ["esp32c3"] }
-esp-hal-embassy = { version = "0.4", features = ["esp32c3"] }
+esp-hal = { version = "0.22", features = ["esp32c3"] }
+esp-hal-embassy = { version = "0.5", features = ["esp32c3"] }
 esp-println = { version = "0.12", features = ["esp32c3","log"] }
-esp-wifi = { version = "0.10", features = ["esp32c3", "async", "embassy-net", "wifi", "ipv6"] }
+esp-wifi = { version = "0.11", features = ["esp32c3", "wifi"] }
 heapless = "0.8"
 static_cell = { version = "2", features = ["nightly"] }
 

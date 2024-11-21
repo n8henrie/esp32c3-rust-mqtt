@@ -58,7 +58,6 @@
             cargoLock.lockFile = ./Cargo.lock;
             RUSTFLAGS = [
               "-C link-arg=-Tlinkall.x"
-              "-C link-arg=-Trom_functions.x"
               "-C force-frame-pointers"
               "-C linker=rust-lld"
             ];

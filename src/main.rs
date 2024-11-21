@@ -8,7 +8,7 @@ use embassy_time::{Duration, Timer};
 
 use esp_backtrace as _;
 use esp_hal::{
-    gpio::{Io, Level, Output},
+    gpio::{Level, Output},
     rng::Rng,
     timer::timg::TimerGroup,
 };
@@ -18,7 +18,7 @@ use esp_wifi::{
         ClientConfiguration, Configuration, WifiController, WifiDevice, WifiEvent, WifiStaDevice,
         WifiState,
     },
-    EspWifiInitFor,
+    EspWifiController,
 };
 
 use rust_mqtt::{
@@ -49,9 +49,6 @@ const PASSWORD: &str = env!("PASSWORD");
 const PUBLISH_TOPIC: &str = env!("PUBLISH_TOPIC");
 const RECEIVE_TOPIC: &str = env!("RECEIVE_TOPIC");
 
-// #TODO: consider thiserror once no_std compatible
-// https://github.com/dtolnay/thiserror/pull/304
-
 #[allow(unused)]
 #[derive(Debug, Error)]
 enum Error {
@@ -72,16 +69,6 @@ impl From<rust_mqtt::packet::v5::reason_codes::ReasonCode> for Error {
 }
 
 type Result<T> = core::result::Result<T, Error>;
-
-// async fn mkclient<'a, T: embassy_net::driver::Driver>(
-//     stack: &'static embassy_net::Stack<T>,
-//     rx_buffer: &'a mut [u8],
-//     tx_buffer: &'a mut [u8],
-//     recv_buffer: &'a mut [u8],
-//     write_buffer: &'a mut [u8],
-// ) -> MqttClient<'a, embassy_net::tcp::TcpSocket<'a>, 5, rust_mqtt::utils::rng_generator::CountingRng>
-// {
-// }
 
 struct Buffers {
     rx: [u8; 4096],
@@ -116,7 +103,6 @@ impl<'a> Client<'a> {
     {
         println!("Creating client");
 
-        // Crashes here
         let mut socket = TcpSocket::new(stack, &mut buf.rx, &mut buf.tx);
         println!("Setting timeout");
         socket.set_timeout(Some(embassy_time::Duration::from_secs(10)));
@@ -154,14 +140,12 @@ impl<'a> Client<'a> {
         config.add_client_id("clientId-8rhWgBODCl");
         config.max_packet_size = 100;
 
-        // MqttClient<'a, T: Read + Write, const MAX_PROPERTIES: usize, R: RngCore>
         let mut client =
             MqttClient::<_, 5, _>::new(socket, &mut buf.write, 80, &mut buf.recv, 80, config);
 
         match client.connect_to_broker().await {
             Ok(()) => {
                 println!("Connected to broker");
-                // break;
             }
             Err(mqtt_error) => {
                 if let ReasonCode::NetworkError = mqtt_error {
@@ -202,9 +186,7 @@ impl<'a> Client<'a> {
 
 #[embassy_executor::task]
 async fn receive(
-    // stack: &'static embassy_net::Stack<impl embassy_net::driver::Driver>,
     stack: &'static embassy_net::Stack<WifiDevice<'static, esp_wifi::wifi::WifiStaDevice>>,
-    // mut led: AnyOutput<'static>,
     mut led: Output<'static>,
 ) {
     let mut buf = Buffers::new();
@@ -241,29 +223,26 @@ async fn receive(
 }
 
 #[embassy_executor::task]
-// async fn send(stack: &'static embassy_net::Stack<impl embassy_net::driver::Driver>) {
 async fn send(
     stack: &'static embassy_net::Stack<WifiDevice<'static, esp_wifi::wifi::WifiStaDevice>>,
 ) {
     let mut buf = Buffers::new();
     let mut client = Client::new(stack, &mut buf).await;
 
-    println!("Subscribing to topic {RECEIVE_TOPIC:?}");
-
     loop {
+        sleep(1_000).await;
         println!("Publishing message to topic {PUBLISH_TOPIC:?}");
         match client.send_message(PUBLISH_TOPIC, b"42", QoS1, false).await {
             Ok(()) => {
                 println!("Message sent");
             }
             Err(e) => {
-                println!("Error sending message: {e:?}");
+                println!("Error sending message: {e} ({e:?})");
             }
         }
     }
 }
 
-// #[main]
 #[esp_hal_embassy::main]
 async fn main(spawner: Spawner) {
     esp_println::logger::init_logger_from_env();
@@ -273,14 +252,15 @@ async fn main(spawner: Spawner) {
     esp_alloc::heap_allocator!(72 * 1024);
 
     let timg0 = TimerGroup::new(peripherals.TIMG0);
-    let init = esp_wifi::init(
-        EspWifiInitFor::Wifi,
-        timg0.timer0,
-        Rng::new(peripherals.RNG),
-        peripherals.RADIO_CLK,
-        // &clocks,
-    )
-    .unwrap();
+    let init = &*mk_static!(
+        EspWifiController<'static>,
+        esp_wifi::init(
+            timg0.timer0,
+            Rng::new(peripherals.RNG),
+            peripherals.RADIO_CLK,
+        )
+        .unwrap()
+    );
 
     let wifi = peripherals.WIFI;
     let (wifi_interface, controller) =
@@ -317,8 +297,7 @@ async fn main(spawner: Spawner) {
         Timer::after(Duration::from_millis(500)).await;
     }
 
-    let io = Io::new(peripherals.GPIO, peripherals.IO_MUX);
-    let mut led = Output::new(io.pins.gpio8, Level::Low);
+    let mut led = Output::new(peripherals.GPIO8, Level::Low);
 
     // Flash the onboard led to show that we have the pin right
     // and to indicate network connection
@@ -341,9 +320,9 @@ pub async fn sleep(millis: u32) {
 #[embassy_executor::task]
 async fn connection(mut controller: WifiController<'static>) {
     println!("start connection task");
-    println!("Device capabilities: {:?}", controller.get_capabilities());
+    println!("Device capabilities: {:?}", controller.capabilities());
     loop {
-        if let WifiState::StaConnected = esp_wifi::wifi::get_wifi_state() {
+        if let WifiState::StaConnected = esp_wifi::wifi::wifi_state() {
             // wait until we're no longer connected
             controller.wait_for_event(WifiEvent::StaDisconnected).await;
             Timer::after(Duration::from_millis(5000)).await;
@@ -356,12 +335,12 @@ async fn connection(mut controller: WifiController<'static>) {
             });
             controller.set_configuration(&client_config).unwrap();
             println!("Starting wifi");
-            controller.start().await.unwrap();
+            controller.start_async().await.unwrap();
             println!("Wifi started!");
         }
         println!("About to connect...");
 
-        match controller.connect().await {
+        match controller.connect_async().await {
             Ok(()) => println!("Wifi connected!"),
             Err(e) => {
                 println!("Failed to connect to wifi: {e:?}");
