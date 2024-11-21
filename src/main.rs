@@ -32,6 +32,8 @@ use rust_mqtt::{
 
 use esp_alloc as _;
 
+use thiserror::Error;
+
 macro_rules! mk_static {
     ($t:ty,$val:expr) => {{
         static STATIC_CELL: static_cell::StaticCell<$t> = static_cell::StaticCell::new();
@@ -51,26 +53,21 @@ const RECEIVE_TOPIC: &str = env!("RECEIVE_TOPIC");
 // https://github.com/dtolnay/thiserror/pull/304
 
 #[allow(unused)]
-#[derive(Debug)]
+#[derive(Debug, Error)]
 enum Error {
+    #[error("MQTT Network Error")]
     MqttNetwork,
+
+    #[error("MQTT Error, reason code: `{0}`")]
     Mqtt(rust_mqtt::packet::v5::reason_codes::ReasonCode),
+
+    #[error("DNS lookup error")]
     Dns,
 }
 
 impl From<rust_mqtt::packet::v5::reason_codes::ReasonCode> for Error {
     fn from(reason_code: rust_mqtt::packet::v5::reason_codes::ReasonCode) -> Self {
         Error::Mqtt(reason_code)
-    }
-}
-
-impl core::fmt::Display for Error {
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        match self {
-            Error::MqttNetwork => write!(f, "MQTT Network Error"),
-            Error::Mqtt(reason_code) => write!(f, "Other MQTT Error: {reason_code:?}"),
-            Error::Dns => write!(f, "DNS lookup error"),
-        }
     }
 }
 
