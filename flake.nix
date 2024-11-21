@@ -81,6 +81,7 @@
             mkShell {
               buildInputs = [
                 cargo-espflash
+                mosquitto
                 rust-analyzer
                 rustPackages.clippy
                 rustfmt
