@@ -9,3 +9,5 @@ post detailing my process for getting a prior iteration working (prior to [the
 release of `esp-wifi` on crates.io](https://crates.io/crates/esp-wifi)) may be
 useful to novices and hobbyists (such as myself):
 https://n8henrie.com/2023/09/compiling-rust-for-the-esp32-with-nix/
+
+For a much better example, you may also be interested in this project: https://gitlab.com/claudiomattera/esp32c3-embassy
