@@ -30,6 +30,8 @@ use rust_mqtt::{
     utils::rng_generator::CountingRng,
 };
 
+use esp_alloc as _;
+
 macro_rules! mk_static {
     ($t:ty,$val:expr) => {{
         static STATIC_CELL: static_cell::StaticCell<$t> = static_cell::StaticCell::new();
@@ -270,6 +272,8 @@ async fn main(spawner: Spawner) {
     esp_println::logger::init_logger_from_env();
 
     let peripherals = esp_hal::init(esp_hal::Config::default());
+
+    esp_alloc::heap_allocator!(72 * 1024);
 
     let timg0 = TimerGroup::new(peripherals.TIMG0);
     let init = esp_wifi::init(

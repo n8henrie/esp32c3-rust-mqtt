@@ -20,6 +20,7 @@ static_cell = { version = "2", features = ["nightly"] }
 rust-mqtt = { version = "0.3", default-features = false }
 rand_core = "0.6"
 embassy-sync = { version = "0.6" }
+esp-alloc = "0.5.0"
 
 [profile.dev.package.esp-wifi]
 opt-level = 3
