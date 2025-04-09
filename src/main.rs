@@ -221,6 +221,14 @@ async fn main(spawner: Spawner) {
                 println!("Error sending message: {e} ({e:?})");
             }
         }
+
+        match client.send_ping().await {
+            Ok(()) => (),
+            Err(e) => {
+                println!("Error sending message: {e} ({e:?})");
+            }
+        }
+
         sleep(1_000).await;
     }
 }
