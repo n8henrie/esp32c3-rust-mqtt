@@ -1,8 +1,7 @@
 [package]
 name = "esp32c3-rust-mqtt"
 version = "0.1.0"
-edition = "2021"
-resolver = "2"
+edition = "2024"
 
 [dependencies]
 embassy-executor = { version = "0.7", features = [ "task-arena-size-24576" ] }
