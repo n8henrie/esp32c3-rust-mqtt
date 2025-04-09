@@ -1,4 +1,3 @@
-#![warn(clippy::pedantic)]
 #![no_std]
 #![no_main]
 
@@ -85,13 +84,13 @@ async fn main(spawner: Spawner) {
 
     let wifi = peripherals.WIFI;
     let (wifi_interface, controller) =
-        esp_wifi::wifi::new_with_mode(&init, wifi, WifiStaDevice).unwrap();
+        esp_wifi::wifi::new_with_mode(init, wifi, WifiStaDevice).unwrap();
 
     let timg1 = TimerGroup::new(peripherals.TIMG1);
     esp_hal_embassy::init(timg1.timer0);
 
     let config = Config::dhcpv4(DhcpConfig::default());
-    let seed = (rng.random() as u64) << 32 | rng.random() as u64;
+    let seed = (u64::from(rng.random())) << 32 | u64::from(rng.random());
 
     let (stack, runner) = embassy_net::new(
         wifi_interface,
@@ -182,7 +181,7 @@ async fn main(spawner: Spawner) {
                 println!("Other MQTT Error: {:?}", mqtt_error);
             }
         }
-    };
+    }
 
     println!("Subscribing to topic {RECEIVE_TOPIC:?}");
     client
@@ -203,18 +202,15 @@ async fn main(spawner: Spawner) {
                 }
             }
 
-            // no messages ready
-            Ok(None) => (),
-
             // reasons include:
             // - no mqtt broker
-            Err(ReasonCode::NetworkError) => (),
+            Err(ReasonCode::NetworkError) | Ok(None) => (),
 
             Err(e) => {
                 println!("Error receiving message: {e:?}");
                 continue;
             }
-        };
+        }
 
         println!("Publishing message to topic {PUBLISH_TOPIC:?}");
         match client.send_message(PUBLISH_TOPIC, b"42", QoS1, false).await {
@@ -268,5 +264,5 @@ async fn connection(mut controller: WifiController<'static>) {
 
 #[embassy_executor::task]
 async fn net_task(mut runner: Runner<'static, WifiDevice<'static, WifiStaDevice>>) {
-    runner.run().await
+    runner.run().await;
 }

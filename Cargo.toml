@@ -31,3 +31,6 @@ lto = "off"
 
 [profile.release]
 lto = "off"
+
+[lints.clippy]
+pedantic = "warn"
