@@ -5,21 +5,23 @@ edition = "2021"
 resolver = "2"
 
 [dependencies]
-embassy-executor = { version = "0.5", features = [ "integrated-timers"] }
-embassy-net = { version = "0.4", features = ["tcp", "udp", "dhcpv4", "medium-ethernet", "proto-ipv6", "log", "dns"] }
-embassy-time       = { version = "0.3" }
+embassy-executor = { version = "0.7", features = [ "task-arena-size-24576" ] }
+embassy-net = { version = "0.6", features = ["tcp", "udp", "dhcpv4", "medium-ethernet", "proto-ipv6", "log", "dns"] }
+embassy-time = { version = "0.4" }
 embedded-io-async = "0.6"
-esp-backtrace = { version = "0.13", features = ["esp32c3", "println", "panic-handler", "exception-handler" ] }
-esp-hal = { version = "0.19", features = ["esp32c3", "async" ] }
-esp-hal-embassy = { version = "0.2", features = ["esp32c3"] }
-esp-println = { version = "0.10", features = ["esp32c3","log"] }
-esp-wifi = { version = "0.7", features = ["esp32c3", "async", "embassy-net", "wifi", "ipv6"] }
+esp-backtrace = { version = "0.15", features = ["esp32c3", "println", "panic-handler", "exception-handler" ] }
+esp-hal = { version = "0.23", features = ["esp32c3"] }
+esp-hal-embassy = { version = "0.6", features = ["esp32c3"] }
+esp-println = { version = "0.13", features = ["esp32c3","log"] }
+esp-wifi = { version = "0.12", features = ["esp32c3", "wifi"] }
 heapless = "0.8"
 static_cell = { version = "2", features = ["nightly"] }
 
-rust-mqtt = { version = "0.3", default-features = false }
-rand_core = "0.6"
-embassy-sync = { version = "0.6.0" }
+rust-mqtt = { git = "https://github.com/obabec/rust-mqtt", rev = "90df1fca481001d4a2fd77ec038fd85b2ab7a1d8", default-features = false }
+rand_core = "0.9"
+embassy-sync = { version = "0.6" }
+esp-alloc = "0.6"
+thiserror = { version = "2", default-features = false }
 
 [profile.dev.package.esp-wifi]
 opt-level = 3
@@ -29,8 +31,3 @@ lto = "off"
 
 [profile.release]
 lto = "off"
-
-[features]
-nix =  [
-    # "dep:allocator-api2", 
-]
