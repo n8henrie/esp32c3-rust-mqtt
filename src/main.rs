@@ -2,23 +2,20 @@
 #![no_main]
 
 use embassy_executor::Spawner;
-use embassy_net::{dns::DnsQueryType, tcp::TcpSocket, Config, DhcpConfig, Runner, StackResources};
+use embassy_net::{Config, DhcpConfig, Runner, StackResources, dns::DnsQueryType, tcp::TcpSocket};
 use embassy_time::{Duration, Timer};
 
 use esp_backtrace as _;
 use esp_hal::{
     clock::CpuClock,
-    gpio::{Level, Output},
+    gpio::{Level, Output, OutputConfig},
     rng::Rng,
     timer::timg::TimerGroup,
 };
 use esp_println::println;
 use esp_wifi::{
-    wifi::{
-        ClientConfiguration, Configuration, WifiController, WifiDevice, WifiEvent, WifiStaDevice,
-        WifiState,
-    },
     EspWifiController,
+    wifi::{ClientConfiguration, Configuration, WifiController, WifiDevice, WifiEvent, WifiState},
 };
 
 use rust_mqtt::{
@@ -72,19 +69,17 @@ async fn main(spawner: Spawner) {
     let config = esp_hal::Config::default().with_cpu_clock(CpuClock::max());
     let peripherals = esp_hal::init(config);
 
-    esp_alloc::heap_allocator!(72 * 1024);
+    esp_alloc::heap_allocator!(size: 72 * 1024);
 
     let timg0 = TimerGroup::new(peripherals.TIMG0);
     let mut rng = Rng::new(peripherals.RNG);
 
-    let init = &*mk_static!(
+    let esp_wifi_ctrl = &*mk_static!(
         EspWifiController<'static>,
-        esp_wifi::init(timg0.timer0, rng, peripherals.RADIO_CLK,).unwrap()
+        esp_wifi::init(timg0.timer0, rng, peripherals.RADIO_CLK).unwrap()
     );
-
-    let wifi = peripherals.WIFI;
-    let (wifi_interface, controller) =
-        esp_wifi::wifi::new_with_mode(init, wifi, WifiStaDevice).unwrap();
+    let (controller, interfaces) = esp_wifi::wifi::new(esp_wifi_ctrl, peripherals.WIFI).unwrap();
+    let wifi_interface = interfaces.sta;
 
     let timg1 = TimerGroup::new(peripherals.TIMG1);
     esp_hal_embassy::init(timg1.timer0);
@@ -113,7 +108,7 @@ async fn main(spawner: Spawner) {
         Timer::after(Duration::from_millis(500)).await;
     }
 
-    let mut led = Output::new(peripherals.GPIO8, Level::Low);
+    let mut led = Output::new(peripherals.GPIO8, Level::Low, OutputConfig::default());
 
     // Flash the onboard led to show that we have the pin right
     // and to indicate network connection
@@ -271,6 +266,6 @@ async fn connection(mut controller: WifiController<'static>) {
 }
 
 #[embassy_executor::task]
-async fn net_task(mut runner: Runner<'static, WifiDevice<'static, WifiStaDevice>>) {
+async fn net_task(mut runner: Runner<'static, WifiDevice<'static>>) {
     runner.run().await;
 }

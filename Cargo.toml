@@ -9,17 +9,17 @@ embassy-net = { version = "0.6", features = ["tcp", "udp", "dhcpv4", "medium-eth
 embassy-time = { version = "0.4" }
 embedded-io-async = "0.6"
 esp-backtrace = { version = "0.15", features = ["esp32c3", "println", "panic-handler", "exception-handler" ] }
-esp-hal = { version = "0.23", features = ["esp32c3"] }
-esp-hal-embassy = { version = "0.6", features = ["esp32c3"] }
+esp-hal = { version = "1.0.0-beta", features = ["esp32c3", "unstable"] }
+esp-hal-embassy = { version = "0.7", features = ["esp32c3"] }
 esp-println = { version = "0.13", features = ["esp32c3","log"] }
-esp-wifi = { version = "0.12", features = ["esp32c3", "wifi"] }
+esp-wifi = { version = "0.13", features = ["esp32c3", "wifi"] }
 heapless = "0.8"
 static_cell = { version = "2", features = ["nightly"] }
 
 rust-mqtt = { git = "https://github.com/obabec/rust-mqtt", rev = "90df1fca481001d4a2fd77ec038fd85b2ab7a1d8", default-features = false }
 rand_core = "0.9"
 embassy-sync = { version = "0.6" }
-esp-alloc = "0.6"
+esp-alloc = "0.7"
 thiserror = { version = "2", default-features = false }
 
 [profile.dev.package.esp-wifi]
