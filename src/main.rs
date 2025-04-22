@@ -2,13 +2,14 @@
 #![no_main]
 
 use embassy_executor::Spawner;
+use embassy_futures::select::{Either3, select3};
 use embassy_net::{Config, DhcpConfig, Runner, StackResources, dns::DnsQueryType, tcp::TcpSocket};
 use embassy_time::{Duration, Timer};
 
 use esp_backtrace as _;
 use esp_hal::{
     clock::CpuClock,
-    gpio::{Level, Output, OutputConfig},
+    gpio::{Input, InputConfig, Level, Output, OutputConfig, Pull},
     rng::Rng,
     timer::timg::TimerGroup,
 };
@@ -109,6 +110,10 @@ async fn main(spawner: Spawner) {
     }
 
     let mut led = Output::new(peripherals.GPIO8, Level::Low, OutputConfig::default());
+    let mut button = Input::new(
+        peripherals.GPIO9,
+        InputConfig::default().with_pull(Pull::Up),
+    );
 
     // Flash the onboard led to show that we have the pin right
     // and to indicate network connection
@@ -143,8 +148,8 @@ async fn main(spawner: Spawner) {
 
         let remote_endpoint = (address, 1883);
         println!("connecting to {remote_endpoint:?}...");
-        let connection = socket.connect(remote_endpoint).await;
-        if let Err(e) = connection {
+
+        if let Err(e) = socket.connect(remote_endpoint).await {
             println!("connect error: {:?}", e);
             continue;
         }
@@ -184,47 +189,63 @@ async fn main(spawner: Spawner) {
         .await
         .expect("Error subscribing to topic: {e:?}");
 
+    // embassy_futures::select::select(client.send_ping(), client.send_ping()).await;
+
     loop {
-        match client.receive_message_if_ready().await {
-            Ok(Some((_topic, message))) => {
-                let c: Option<char> = message.iter().next().map(|num| char::from(*num));
-                match c {
-                    Some('1') => led.set_level(Level::Low),
-                    Some('0') => led.set_level(Level::High),
-                    _ => {
-                        println!("Invalid message: {message:?}");
+        match select3(
+            client.receive_message(),
+            button.wait_for_low(),
+            sleep(3_000),
+        )
+        .await
+        {
+            Either3::First(result) => {
+                match result {
+                    // match client.receive_message_if_ready().await {
+                    Ok((_topic, message)) => {
+                        let c: Option<char> = message.iter().next().map(|num| char::from(*num));
+                        match c {
+                            Some('1') => led.set_level(Level::Low),
+                            Some('0') => led.set_level(Level::High),
+                            _ => {
+                                println!("Invalid message: {message:?}");
+                            }
+                        }
+                    }
+
+                    // reasons include:
+                    // - no mqtt broker
+                    Err(ReasonCode::NetworkError) => (),
+
+                    Err(e) => {
+                        println!("Error receiving message: {e:?}");
                     }
                 }
             }
 
-            // reasons include:
-            // - no mqtt broker
-            Err(ReasonCode::NetworkError) | Ok(None) => (),
+            Either3::Second(()) => {
+                // debounce
+                sleep(100).await;
+                button.wait_for_high().await;
 
-            Err(e) => {
-                println!("Error receiving message: {e:?}");
-                continue;
+                println!("Publishing message to topic {PUBLISH_TOPIC:?}");
+                match client.send_message(PUBLISH_TOPIC, b"42", QoS1, false).await {
+                    Ok(()) => {
+                        println!("Message sent");
+                    }
+                    Err(e) => {
+                        println!("Error sending message: {e} ({e:?})");
+                    }
+                }
             }
+
+            Either3::Third(()) => match client.send_ping().await {
+                Ok(()) => (),
+                Err(e) => {
+                    println!("Error sending message: {e} ({e:?})");
+                }
+            },
         }
-
-        println!("Publishing message to topic {PUBLISH_TOPIC:?}");
-        match client.send_message(PUBLISH_TOPIC, b"42", QoS1, false).await {
-            Ok(()) => {
-                println!("Message sent");
-            }
-            Err(e) => {
-                println!("Error sending message: {e} ({e:?})");
-            }
-        }
-
-        match client.send_ping().await {
-            Ok(()) => (),
-            Err(e) => {
-                println!("Error sending message: {e} ({e:?})");
-            }
-        }
-
-        sleep(1_000).await;
     }
 }
 

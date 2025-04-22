@@ -21,6 +21,7 @@ rand_core = "0.9"
 embassy-sync = { version = "0.6" }
 esp-alloc = "0.7"
 thiserror = { version = "2", default-features = false }
+embassy-futures = "0.1.1"
 
 [profile.dev.package.esp-wifi]
 opt-level = 3

@@ -598,6 +598,7 @@ name = "esp32c3-rust-mqtt"
 version = "0.1.0"
 dependencies = [
  "embassy-executor",
+ "embassy-futures",
  "embassy-net",
  "embassy-sync",
  "embassy-time",
