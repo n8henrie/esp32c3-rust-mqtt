@@ -189,8 +189,6 @@ async fn main(spawner: Spawner) {
         .await
         .expect("Error subscribing to topic: {e:?}");
 
-    // embassy_futures::select::select(client.send_ping(), client.send_ping()).await;
-
     loop {
         match select3(
             client.receive_message(),
@@ -201,7 +199,6 @@ async fn main(spawner: Spawner) {
         {
             Either3::First(result) => {
                 match result {
-                    // match client.receive_message_if_ready().await {
                     Ok((_topic, message)) => {
                         let c: Option<char> = message.iter().next().map(|num| char::from(*num));
                         match c {
