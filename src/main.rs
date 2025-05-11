@@ -200,7 +200,7 @@ async fn main(spawner: Spawner) {
             Either3::First(result) => {
                 match result {
                     Ok((_topic, message)) => {
-                        let c: Option<char> = message.iter().next().map(|num| char::from(*num));
+                        let c: Option<char> = message.iter().next().cloned().map(char::from);
                         match c {
                             Some('1') => led.set_level(Level::Low),
                             Some('0') => led.set_level(Level::High),
