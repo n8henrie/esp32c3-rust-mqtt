@@ -14,7 +14,7 @@ esp-hal-embassy = { version = "0.7", features = ["esp32c3"] }
 esp-println = { version = "0.13", features = ["esp32c3","log"] }
 esp-wifi = { version = "0.13", features = ["esp32c3", "wifi"] }
 heapless = "0.8"
-static_cell = { version = "2", features = ["nightly"] }
+static_cell = "2"
 
 rust-mqtt = { git = "https://github.com/obabec/rust-mqtt", rev = "90df1fca481001d4a2fd77ec038fd85b2ab7a1d8", default-features = false }
 rand_core = "0.9"
