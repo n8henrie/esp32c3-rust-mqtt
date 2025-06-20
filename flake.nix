@@ -93,7 +93,11 @@
 
         apps.default =
           let
-            ESPFLASH_PORT = builtins.getEnv "ESPFLASH_PORT";
+            ESPFLASH_PORT =
+              let
+                port = builtins.getEnv "ESPFLASH_PORT";
+              in
+              if port == "" then abort ''port is unset -- source .env and run with "--impure"'' else port;
             script = (
               pkgs.writeShellScriptBin "run" ''
                 ${pkgs.espflash}/bin/espflash \
