@@ -1,0 +1,6 @@
+[[language]]
+name = "rust"
+
+[language-server.rust-analyzer.config.check]
+targets = ["riscv32imc-unknown-none-elf"]
+allTargets = false
