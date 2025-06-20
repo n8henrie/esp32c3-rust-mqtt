@@ -98,6 +98,14 @@ async fn main(spawner: Spawner) {
     spawner.spawn(connection(controller)).ok();
     spawner.spawn(net_task(runner)).ok();
 
+    let mut led = Output::new(peripherals.GPIO8, Level::Low, OutputConfig::default());
+    let mut button = Input::new(
+        peripherals.GPIO9,
+        InputConfig::default().with_pull(Pull::Up),
+    );
+
+    'main: loop {
+        stack.wait_link_up().await;
     stack.wait_config_up().await;
 
     println!("Waiting to get IP address...");
@@ -108,12 +116,6 @@ async fn main(spawner: Spawner) {
         }
         Timer::after(Duration::from_millis(500)).await;
     }
-
-    let mut led = Output::new(peripherals.GPIO8, Level::Low, OutputConfig::default());
-    let mut button = Input::new(
-        peripherals.GPIO9,
-        InputConfig::default().with_pull(Pull::Up),
-    );
 
     // Flash the onboard led to show that we have the pin right
     // and to indicate network connection
@@ -193,7 +195,7 @@ async fn main(spawner: Spawner) {
         match select3(
             client.receive_message(),
             button.wait_for_low(),
-            sleep(3_000),
+                sleep(5_000),
         )
         .await
         {
@@ -212,7 +214,7 @@ async fn main(spawner: Spawner) {
 
                     // reasons include:
                     // - no mqtt broker
-                    Err(ReasonCode::NetworkError) => (),
+                        Err(ReasonCode::NetworkError) => continue 'main,
 
                     Err(e) => {
                         println!("Error receiving message: {e:?}");
@@ -244,6 +246,7 @@ async fn main(spawner: Spawner) {
             },
         }
     }
+}
 }
 
 pub async fn sleep(millis: u32) {
