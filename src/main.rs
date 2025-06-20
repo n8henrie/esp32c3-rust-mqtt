@@ -106,147 +106,147 @@ async fn main(spawner: Spawner) {
 
     'main: loop {
         stack.wait_link_up().await;
-    stack.wait_config_up().await;
+        stack.wait_config_up().await;
 
-    println!("Waiting to get IP address...");
-    loop {
-        if let Some(config) = stack.config_v4() {
-            println!("Got IP: {}", config.address);
-            break;
+        println!("Waiting to get IP address...");
+        loop {
+            if let Some(config) = stack.config_v4() {
+                println!("Got IP: {}", config.address);
+                break;
+            }
+            Timer::after(Duration::from_millis(500)).await;
         }
-        Timer::after(Duration::from_millis(500)).await;
-    }
 
-    // Flash the onboard led to show that we have the pin right
-    // and to indicate network connection
-    for _ in 0..10 {
-        led.toggle();
-        Timer::after(Duration::from_millis(100)).await;
-    }
+        // Flash the onboard led to show that we have the pin right
+        // and to indicate network connection
+        for _ in 0..10 {
+            led.toggle();
+            Timer::after(Duration::from_millis(100)).await;
+        }
 
-    // On my ESP32C3, the onboard LED is active low
-    led.set_high();
+        // On my ESP32C3, the onboard LED is active low
+        led.set_high();
 
-    let mut rx_buffer = [0; 4096];
-    let mut tx_buffer = [0; 4096];
+        let mut rx_buffer = [0; 4096];
+        let mut tx_buffer = [0; 4096];
 
-    let mut socket = TcpSocket::new(stack, &mut rx_buffer, &mut tx_buffer);
-    println!("Setting timeout");
-    socket.set_timeout(Some(embassy_time::Duration::from_secs(10)));
+        let mut socket = TcpSocket::new(stack, &mut rx_buffer, &mut tx_buffer);
+        println!("Setting timeout");
+        socket.set_timeout(Some(embassy_time::Duration::from_secs(10)));
 
-    println!("Getting address");
-    loop {
-        let address = match stack
-            .dns_query(MQTT_HOST, DnsQueryType::A)
-            .await
-            .map(|a| a[0])
-        {
-            Ok(address) => address,
-            Err(e) => {
-                println!("DNS lookup error: {e:?}");
+        println!("Getting address");
+        loop {
+            let address = match stack
+                .dns_query(MQTT_HOST, DnsQueryType::A)
+                .await
+                .map(|a| a[0])
+            {
+                Ok(address) => address,
+                Err(e) => {
+                    println!("DNS lookup error: {e:?}");
+                    continue;
+                }
+            };
+
+            let remote_endpoint = (address, 1883);
+            println!("connecting to {remote_endpoint:?}...");
+
+            if let Err(e) = socket.connect(remote_endpoint).await {
+                println!("connect error: {:?}", e);
                 continue;
             }
-        };
-
-        let remote_endpoint = (address, 1883);
-        println!("connecting to {remote_endpoint:?}...");
-
-        if let Err(e) = socket.connect(remote_endpoint).await {
-            println!("connect error: {:?}", e);
-            continue;
+            println!("connected");
+            break;
         }
-        println!("connected");
-        break;
-    }
 
-    let mut config = ClientConfig::new(
-        rust_mqtt::client::client_config::MqttVersion::MQTTv5,
-        CountingRng(20000),
-    );
-    config.add_max_subscribe_qos(rust_mqtt::packet::v5::publish_packet::QualityOfService::QoS1);
-    config.add_client_id("clientId-8rhWgBODCl");
-    config.max_packet_size = 100;
+        let mut config = ClientConfig::new(
+            rust_mqtt::client::client_config::MqttVersion::MQTTv5,
+            CountingRng(20000),
+        );
+        config.add_max_subscribe_qos(rust_mqtt::packet::v5::publish_packet::QualityOfService::QoS1);
+        config.add_client_id("clientId-8rhWgBODCl");
+        config.max_packet_size = 100;
 
-    let mut writebuf = [0; 1024];
-    let mut readbuf = [0; 1024];
-    let mut client =
-        MqttClient::<_, 5, _>::new(socket, &mut writebuf, 80, &mut readbuf, 80, config);
+        let mut writebuf = [0; 1024];
+        let mut readbuf = [0; 1024];
+        let mut client =
+            MqttClient::<_, 5, _>::new(socket, &mut writebuf, 80, &mut readbuf, 80, config);
 
-    match client.connect_to_broker().await {
-        Ok(()) => {
-            println!("Connected to broker");
-        }
-        Err(mqtt_error) => {
-            if let ReasonCode::NetworkError = mqtt_error {
-                println!("MQTT Network Error");
-            } else {
-                println!("Other MQTT Error: {:?}", mqtt_error);
+        match client.connect_to_broker().await {
+            Ok(()) => {
+                println!("Connected to broker");
             }
-        }
-    }
-
-    println!("Subscribing to topic {RECEIVE_TOPIC:?}");
-    client
-        .subscribe_to_topic(RECEIVE_TOPIC)
-        .await
-        .expect("Error subscribing to topic: {e:?}");
-
-    loop {
-        match select3(
-            client.receive_message(),
-            button.wait_for_low(),
-                sleep(5_000),
-        )
-        .await
-        {
-            Either3::First(result) => {
-                match result {
-                    Ok((_topic, message)) => {
-                        let c: Option<char> = message.iter().next().cloned().map(char::from);
-                        match c {
-                            Some('1') => led.set_level(Level::Low),
-                            Some('0') => led.set_level(Level::High),
-                            _ => {
-                                println!("Invalid message: {message:?}");
-                            }
-                        }
-                    }
-
-                    // reasons include:
-                    // - no mqtt broker
-                        Err(ReasonCode::NetworkError) => continue 'main,
-
-                    Err(e) => {
-                        println!("Error receiving message: {e:?}");
-                    }
+            Err(mqtt_error) => {
+                if let ReasonCode::NetworkError = mqtt_error {
+                    println!("MQTT Network Error");
+                } else {
+                    println!("Other MQTT Error: {:?}", mqtt_error);
                 }
             }
+        }
 
-            Either3::Second(()) => {
-                // debounce
-                sleep(100).await;
-                button.wait_for_high().await;
+        println!("Subscribing to topic {RECEIVE_TOPIC:?}");
+        client
+            .subscribe_to_topic(RECEIVE_TOPIC)
+            .await
+            .expect("Error subscribing to topic: {e:?}");
 
-                println!("Publishing message to topic {PUBLISH_TOPIC:?}");
-                match client.send_message(PUBLISH_TOPIC, b"42", QoS1, false).await {
-                    Ok(()) => {
-                        println!("Message sent");
+        loop {
+            match select3(
+                client.receive_message(),
+                button.wait_for_low(),
+                sleep(5_000),
+            )
+            .await
+            {
+                Either3::First(result) => {
+                    match result {
+                        Ok((_topic, message)) => {
+                            let c: Option<char> = message.iter().next().cloned().map(char::from);
+                            match c {
+                                Some('1') => led.set_level(Level::Low),
+                                Some('0') => led.set_level(Level::High),
+                                _ => {
+                                    println!("Invalid message: {message:?}");
+                                }
+                            }
+                        }
+
+                        // reasons include:
+                        // - no mqtt broker
+                        Err(ReasonCode::NetworkError) => continue 'main,
+
+                        Err(e) => {
+                            println!("Error receiving message: {e:?}");
+                        }
                     }
+                }
+
+                Either3::Second(()) => {
+                    // debounce
+                    sleep(100).await;
+                    button.wait_for_high().await;
+
+                    println!("Publishing message to topic {PUBLISH_TOPIC:?}");
+                    match client.send_message(PUBLISH_TOPIC, b"42", QoS1, false).await {
+                        Ok(()) => {
+                            println!("Message sent");
+                        }
+                        Err(e) => {
+                            println!("Error sending message: {e} ({e:?})");
+                        }
+                    }
+                }
+
+                Either3::Third(()) => match client.send_ping().await {
+                    Ok(()) => (),
                     Err(e) => {
                         println!("Error sending message: {e} ({e:?})");
                     }
-                }
+                },
             }
-
-            Either3::Third(()) => match client.send_ping().await {
-                Ok(()) => (),
-                Err(e) => {
-                    println!("Error sending message: {e} ({e:?})");
-                }
-            },
         }
     }
-}
 }
 
 pub async fn sleep(millis: u32) {
