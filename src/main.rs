@@ -65,8 +65,6 @@ impl From<rust_mqtt::packet::v5::reason_codes::ReasonCode> for Error {
 
 #[esp_hal_embassy::main]
 async fn main(spawner: Spawner) {
-    esp_println::logger::init_logger_from_env();
-
     let config = esp_hal::Config::default().with_cpu_clock(CpuClock::max());
     let peripherals = esp_hal::init(config);
 
@@ -114,14 +112,13 @@ async fn main(spawner: Spawner) {
                 println!("Got IP: {}", config.address);
                 break;
             }
-            Timer::after(Duration::from_millis(500)).await;
         }
 
         // Flash the onboard led to show that we have the pin right
         // and to indicate network connection
         for _ in 0..10 {
             led.toggle();
-            Timer::after(Duration::from_millis(100)).await;
+            sleep(100).await;
         }
 
         // On my ESP32C3, the onboard LED is active low
@@ -214,7 +211,11 @@ async fn main(spawner: Spawner) {
 
                         // reasons include:
                         // - no mqtt broker
-                        Err(ReasonCode::NetworkError) => continue 'main,
+                        Err(ReasonCode::NetworkError) => {
+                            println!("Network error! restarting stack after a brief delay");
+                            sleep(5_000).await;
+                            continue 'main;
+                        }
 
                         Err(e) => {
                             println!("Error receiving message: {e:?}");
@@ -249,8 +250,8 @@ async fn main(spawner: Spawner) {
     }
 }
 
-pub async fn sleep(millis: u32) {
-    Timer::after(Duration::from_millis(u64::from(millis))).await;
+pub async fn sleep(millis: u64) {
+    Timer::after(Duration::from_millis(millis)).await;
 }
 
 #[embassy_executor::task]
@@ -261,7 +262,7 @@ async fn connection(mut controller: WifiController<'static>) {
         if let WifiState::StaConnected = esp_wifi::wifi::wifi_state() {
             // wait until we're no longer connected
             controller.wait_for_event(WifiEvent::StaDisconnected).await;
-            Timer::after(Duration::from_millis(5000)).await;
+            sleep(5_000).await;
         }
         if !matches!(controller.is_started(), Ok(true)) {
             let client_config = Configuration::Client(ClientConfiguration {
@@ -277,10 +278,16 @@ async fn connection(mut controller: WifiController<'static>) {
         println!("About to connect...");
 
         match controller.connect_async().await {
-            Ok(()) => println!("Wifi connected!"),
+            Ok(()) => {
+                if let Ok(rssi) = controller.rssi() {
+                    println!("Wifi connected! rssi: {rssi}");
+                } else {
+                    println!("Wifi connected!")
+                };
+            }
             Err(e) => {
                 println!("Failed to connect to wifi: {e:?}");
-                Timer::after(Duration::from_millis(5000)).await;
+                sleep(5_000).await;
             }
         }
     }

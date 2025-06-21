@@ -55,10 +55,7 @@
             inherit name;
             inherit ((builtins.fromTOML (builtins.readFile ./Cargo.toml)).package) version;
             src = pkgs.lib.cleanSource ./.;
-            cargoLock = {
-              lockFile = ./Cargo.lock;
-              outputHashes."rust-mqtt-0.3.0" = "sha256-jFXwQ0yG+t9mFam1XqH22kTNUVpsofpic0Ph6zzW8tg=";
-            };
+            cargoLock.lockFile = ./Cargo.lock;
             RUSTFLAGS = [
               "-C link-arg=-Tlinkall.x"
               "-C force-frame-pointers"
