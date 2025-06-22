@@ -204,7 +204,7 @@ async fn main(spawner: Spawner) {
                 Either3::First(result) => {
                     match result {
                         Ok((_topic, message)) => {
-                            let c: Option<char> = message.iter().next().cloned().map(char::from);
+                            let c: Option<char> = message.iter().next().copied().map(char::from);
                             match c {
                                 Some('1') => led.set_level(Level::Low),
                                 Some('0') => led.set_level(Level::High),
@@ -271,10 +271,8 @@ async fn connection(mut controller: WifiController<'static>) {
         }
         if !matches!(controller.is_started(), Ok(true)) {
             let client_config = Configuration::Client(ClientConfiguration {
-                ssid: SSID.try_into().expect("couldn't make SSID into String"),
-                password: PASSWORD
-                    .try_into()
-                    .expect("couldn't make password into String"),
+                ssid: SSID.into(),
+                password: PASSWORD.into(),
                 ..Default::default()
             });
             controller
@@ -294,8 +292,8 @@ async fn connection(mut controller: WifiController<'static>) {
                 if let Ok(rssi) = controller.rssi() {
                     println!("Wifi connected! rssi: {rssi}");
                 } else {
-                    println!("Wifi connected!")
-                };
+                    println!("Wifi connected!");
+                }
             }
             Err(e) => {
                 println!("Failed to connect to wifi: {e:?}");
