@@ -77,9 +77,10 @@ async fn main(spawner: Spawner) {
 
     let esp_wifi_ctrl = &*mk_static!(
         EspWifiController<'static>,
-        esp_wifi::init(timg0.timer0, rng, peripherals.RADIO_CLK).unwrap()
+        esp_wifi::init(timg0.timer0, rng, peripherals.RADIO_CLK).expect("couldn't init esp_wifi")
     );
-    let (controller, interfaces) = esp_wifi::wifi::new(esp_wifi_ctrl, peripherals.WIFI).unwrap();
+    let (controller, interfaces) = esp_wifi::wifi::new(esp_wifi_ctrl, peripherals.WIFI)
+        .expect("couldn't create wifi controller");
     let wifi_interface = interfaces.sta;
 
     let timg1 = TimerGroup::new(peripherals.TIMG1);
@@ -269,13 +270,20 @@ async fn connection(mut controller: WifiController<'static>) {
         }
         if !matches!(controller.is_started(), Ok(true)) {
             let client_config = Configuration::Client(ClientConfiguration {
-                ssid: SSID.try_into().unwrap(),
-                password: PASSWORD.try_into().unwrap(),
+                ssid: SSID.try_into().expect("couldn't make SSID into String"),
+                password: PASSWORD
+                    .try_into()
+                    .expect("couldn't make password into String"),
                 ..Default::default()
             });
-            controller.set_configuration(&client_config).unwrap();
+            controller
+                .set_configuration(&client_config)
+                .expect("couldn't set controller configuration");
             println!("Starting wifi");
-            controller.start_async().await.unwrap();
+            controller
+                .start_async()
+                .await
+                .expect("couldn't start controller");
             println!("Wifi started!");
         }
         println!("About to connect...");
