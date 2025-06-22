@@ -88,26 +88,31 @@
             };
         };
 
-        apps.default =
+        apps =
           let
             ESPFLASH_PORT =
               let
                 port = builtins.getEnv "ESPFLASH_PORT";
               in
               if port == "" then abort ''port is unset -- source .env and run with "--impure"'' else port;
-            script = (
-              pkgs.writeShellScriptBin "run" ''
-                ${pkgs.espflash}/bin/espflash \
-                  flash \
-                  --monitor \
-                  --port "${ESPFLASH_PORT}" \
-                  ${self.outputs.packages.${system}.${name}}/bin/${name}
-              ''
-            );
+            makeApp = text: {
+              type = "app";
+              program = pkgs.lib.getExe (pkgs.writeShellScriptBin "run" text);
+            };
           in
           {
-            type = "app";
-            program = "${script}/bin/run";
+            default = makeApp ''
+              ${pkgs.espflash}/bin/espflash \
+                flash \
+                --monitor \
+                --port "${ESPFLASH_PORT}" \
+                ${self.outputs.packages.${system}.${name}}/bin/${name}
+            '';
+            monitor = makeApp ''
+              ${pkgs.espflash}/bin/espflash \
+                monitor \
+                --port "${ESPFLASH_PORT}"
+            '';
           };
       }
     );
