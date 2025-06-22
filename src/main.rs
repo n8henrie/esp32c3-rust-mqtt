@@ -187,10 +187,11 @@ async fn main(spawner: Spawner) {
         }
 
         println!("Subscribing to topic {RECEIVE_TOPIC:?}");
-        client
-            .subscribe_to_topic(RECEIVE_TOPIC)
-            .await
-            .expect("Error subscribing to topic: {e:?}");
+        if let Err(e) = client.subscribe_to_topic(RECEIVE_TOPIC).await {
+            println!("Error subscribing to topic: {e:?}");
+            continue 'main;
+        }
+        println!("Subscribed");
 
         loop {
             match select3(
