@@ -43,6 +43,8 @@ const SSID: &str = env!("SSID");
 const PASSWORD: &str = env!("PASSWORD");
 const PUBLISH_TOPIC: &str = env!("PUBLISH_TOPIC");
 const RECEIVE_TOPIC: &str = env!("RECEIVE_TOPIC");
+const KEEP_ALIVE_SECS: u16 = 12;
+const SOCKET_TIMEOUT_SECS: u64 = 60;
 
 #[allow(unused)]
 #[derive(Debug, Error)]
@@ -129,7 +131,7 @@ async fn main(spawner: Spawner) {
 
         let mut socket = TcpSocket::new(stack, &mut rx_buffer, &mut tx_buffer);
         println!("Setting timeout");
-        socket.set_timeout(Some(embassy_time::Duration::from_secs(10)));
+        socket.set_timeout(Some(embassy_time::Duration::from_secs(SOCKET_TIMEOUT_SECS)));
 
         println!("Getting address");
         loop {
@@ -163,6 +165,7 @@ async fn main(spawner: Spawner) {
         config.add_max_subscribe_qos(rust_mqtt::packet::v5::publish_packet::QualityOfService::QoS1);
         config.add_client_id("clientId-8rhWgBODCl");
         config.max_packet_size = 100;
+        config.keep_alive = KEEP_ALIVE_SECS;
 
         let mut writebuf = [0; 1024];
         let mut readbuf = [0; 1024];
@@ -192,7 +195,7 @@ async fn main(spawner: Spawner) {
             match select3(
                 client.receive_message(),
                 button.wait_for_low(),
-                sleep(5_000),
+                sleep(u64::from(KEEP_ALIVE_SECS) * 1_000),
             )
             .await
             {
