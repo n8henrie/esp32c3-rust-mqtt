@@ -6,6 +6,47 @@ Using nix adds some complexity but should help ensure reproducibility; my blog p
 
 For a much better example, you may also be interested in this project: https://gitlab.com/claudiomattera/esp32c3-embassy
 
+## Security
+
+This project takes the straightforward route of pulling sensitive values from environment variables and burning them into the microcontroller.
+This means that an attacker with physical access could almost certainly pull that information from the microcontroller or the build artifacts from compiling this project.
+
+These values include but are not limited to:
+- network SSID
+- network password
+- MQTT username
+- MQTT password
+
+Further, I have taken the lazy route of inheriting these environment values into the nix environment, and as such the nix store will have a *world-readable* copy of all these values.
+This could be mitigated to some degree by something like sops or agenix, but the final binary (also in the nix store) would still contain the values, so I don't think this effort is worthwhile at this time.
+
+## Quickstart
+
+```
+$ git clone https://github.com/n8henrie/esp32c3-rust-mqtt
+$ cd esp32c3-rust-mqtt
+$ cp .env{.sample,}
+$ $EDITOR .env
+$ . .env
+$ cargo run --release
+```
+
+Alternatively, `nix run --impure` instead of `cargo run --release`.
+
 ## Power Usage
 
 Just out of interest, my ESP32C3 running this project uses about 0.075A @ 5.24V (single point in time), and its usage over time seems a little lower at 0.10Wh over 18 mins.
+
+## TODO
+
+- [ ] `defmt` doesn't like the variables in the `println` statements. Is it worth converting them?
+- [ ] would a brief sleep in the hot loop meaningfully decrease the power usage?
+- [ ] is there a way to have each receive and publish task by their own `embassy_executor::task`?
+  - [ ] if so, is this desireable?
+
+## Related projects to keep an eye on
+
+- https://github.com/mountainlizard/mountain-mqtt/
+- https://github.com/siemtim-dev/embedded-mqttc
+- https://github.com/11mad11/esp32
+- https://github.com/bjoernQ/esp32-rust-nostd-temperature-logger
