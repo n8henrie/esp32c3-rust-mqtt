@@ -35,12 +35,13 @@ Alternatively, `nix run --impure` instead of `cargo run --release`.
 
 ## Power Usage
 
-Just out of interest, my ESP32C3 running this project uses about 0.075A @ 5.24V (single point in time), and its usage over time seems a little lower at 0.10Wh over 18 mins.
+Just out of interest, my ESP32C3 running this project uses about 0.075A @ 5.24V (single point in time), and its usage over time seems a little lower at 0.10Wh over 18 mins (~33W)
 
 ## TODO
 
 - [ ] `defmt` doesn't like the variables in the `println` statements. Is it worth converting them?
-- [ ] would a brief sleep in the hot loop meaningfully decrease the power usage?
+- [x] would a brief sleep in the hot loop meaningfully decrease the power usage?
+  - adding 200 - 500 ms sleep brings power down only very slightly, to about 30W
 - [ ] is there a way to have each receive and publish task by their own `embassy_executor::task`?
   - [ ] if so, is this desireable?
 
