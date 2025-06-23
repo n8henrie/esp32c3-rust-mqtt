@@ -65,9 +65,16 @@
 
             SSID = builtins.getEnv "SSID";
             PASSWORD = builtins.getEnv "PASSWORD";
+
             MQTT_HOST = builtins.getEnv "MQTT_HOST";
+            MQTT_PORT = builtins.getEnv "MQTT_PORT";
+
             PUBLISH_TOPIC = builtins.getEnv "PUBLISH_TOPIC";
             RECEIVE_TOPIC = builtins.getEnv "RECEIVE_TOPIC";
+
+            MQTT_CLIENT_ID = builtins.getEnv "MQTT_CLIENT_ID";
+            MQTT_USERNAME = builtins.getEnv "MQTT_USERNAME";
+            MQTT_PASSWORD = builtins.getEnv "MQTT_PASSWORD";
           };
         };
 

@@ -39,12 +39,18 @@ macro_rules! mk_static {
 }
 
 const MQTT_HOST: &str = env!("MQTT_HOST");
+const MQTT_PORT: &str = env!("MQTT_PORT");
+
 const SSID: &str = env!("SSID");
 const PASSWORD: &str = env!("PASSWORD");
 const PUBLISH_TOPIC: &str = env!("PUBLISH_TOPIC");
 const RECEIVE_TOPIC: &str = env!("RECEIVE_TOPIC");
 const KEEP_ALIVE_SECS: u16 = 12;
 const SOCKET_TIMEOUT_SECS: u64 = 60;
+
+const MQTT_CLIENT_ID: &str = env!("MQTT_CLIENT_ID");
+const MQTT_USERNAME: &str = env!("MQTT_USERNAME");
+const MQTT_PASSWORD: &str = env!("MQTT_PASSWORD");
 
 #[allow(unused)]
 #[derive(Debug, Error)]
@@ -148,7 +154,8 @@ async fn main(spawner: Spawner) {
                 }
             };
 
-            let remote_endpoint = (address, 1883);
+            let port: u16 = MQTT_PORT.parse().expect("Couldn't parse MQTT_PORT as u16");
+            let remote_endpoint = (address, port);
             println!("connecting to {remote_endpoint:?}...");
 
             if let Err(e) = socket.connect(remote_endpoint).await {
@@ -164,9 +171,12 @@ async fn main(spawner: Spawner) {
             CountingRng(20000),
         );
         config.add_max_subscribe_qos(rust_mqtt::packet::v5::publish_packet::QualityOfService::QoS1);
-        config.add_client_id("clientId-8rhWgBODCl");
+        config.add_client_id(MQTT_CLIENT_ID);
         config.max_packet_size = 100;
         config.keep_alive = KEEP_ALIVE_SECS;
+
+        config.add_username(MQTT_USERNAME);
+        config.add_password(MQTT_PASSWORD);
 
         let mut writebuf = [0; 1024];
         let mut readbuf = [0; 1024];
