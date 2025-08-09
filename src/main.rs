@@ -16,7 +16,10 @@ use esp_hal::{
 use esp_println::println;
 use esp_wifi::{
     EspWifiController,
-    wifi::{ClientConfiguration, Configuration, WifiController, WifiDevice, WifiEvent, WifiState},
+    wifi::{
+        AuthMethod, ClientConfiguration, Configuration, WifiController, WifiDevice, WifiEvent,
+        WifiState,
+    },
 };
 
 use rust_mqtt::{
@@ -73,21 +76,29 @@ impl From<rust_mqtt::packet::v5::reason_codes::ReasonCode> for Error {
 
 #[esp_hal_embassy::main]
 async fn main(spawner: Spawner) {
+    println!("STARTUP!");
     let config = esp_hal::Config::default().with_cpu_clock(CpuClock::max());
+    println!("1");
     let peripherals = esp_hal::init(config);
+    println!("2");
 
     esp_alloc::heap_allocator!(size: 72 * 1024);
+    println!("3");
 
     let timg0 = TimerGroup::new(peripherals.TIMG0);
     let mut rng = Rng::new(peripherals.RNG);
+    println!("4");
 
     let esp_wifi_ctrl = &*mk_static!(
         EspWifiController<'static>,
         esp_wifi::init(timg0.timer0, rng, peripherals.RADIO_CLK).expect("couldn't init esp_wifi")
     );
+    println!("5");
     let (controller, interfaces) = esp_wifi::wifi::new(esp_wifi_ctrl, peripherals.WIFI)
         .expect("couldn't create wifi controller");
+    println!("6");
     let wifi_interface = interfaces.sta;
+    println!("7");
 
     let timg1 = TimerGroup::new(peripherals.TIMG1);
     esp_hal_embassy::init(timg1.timer0);
@@ -282,7 +293,7 @@ async fn connection(mut controller: WifiController<'static>) {
         if !matches!(controller.is_started(), Ok(true)) {
             let client_config = Configuration::Client(ClientConfiguration {
                 ssid: SSID.into(),
-                password: PASSWORD.into(),
+                auth_method: AuthMethod::None,
                 ..Default::default()
             });
             controller
