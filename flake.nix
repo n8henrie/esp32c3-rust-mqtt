@@ -59,7 +59,11 @@
             RUSTFLAGS = [
               "-C link-arg=-Tlinkall.x"
               "-C force-frame-pointers"
+              "-C link-arg=-Tdefmt.x"
               "-C linker=rust-lld"
+
+              "-C debuginfo=2"
+              "-C strip=none"
             ];
             doCheck = false;
 
@@ -71,10 +75,13 @@
 
             PUBLISH_TOPIC = builtins.getEnv "PUBLISH_TOPIC";
             RECEIVE_TOPIC = builtins.getEnv "RECEIVE_TOPIC";
+            WILL_TOPIC = builtins.getEnv "WILL_TOPIC";
 
             MQTT_CLIENT_ID = builtins.getEnv "MQTT_CLIENT_ID";
             MQTT_USERNAME = builtins.getEnv "MQTT_USERNAME";
             MQTT_PASSWORD = builtins.getEnv "MQTT_PASSWORD";
+
+            DEFMT_LOG = "debug";
           };
         };
 
@@ -112,12 +119,14 @@
               ${pkgs.espflash}/bin/espflash \
                 flash \
                 --monitor \
+                --log-format defmt \
                 --port "${ESPFLASH_PORT}" \
                 ${self.outputs.packages.${system}.${name}}/bin/${name}
             '';
             monitor = makeApp ''
               ${pkgs.espflash}/bin/espflash \
                 monitor \
+                --log-format defmt \
                 --port "${ESPFLASH_PORT}"
             '';
           };

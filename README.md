@@ -33,9 +33,22 @@ $ cargo run --release
 
 Alternatively, `nix run --impure` instead of `cargo run --release`.
 
-## Power Usage
+## Power Usage and Binary Size
 
-Just out of interest, my ESP32C3 running this project uses about 0.075A @ 5.24V (single point in time), and its usage over time seems a little lower at 0.10Wh over 18 mins (~33W)
+Just out of interest, my ESP32C3 running this project uses about 0.075A @ 5.24V (single point in time), and its usage over time seems a little lower at 0.10Wh over 18 mins (~33W).
+
+**Update 20250809**: With newer code, including a regular `ping` to ensure a persistent connection to the MQTT server, my ESP32C3 used 14.82 Wh over 47h32m (avg 0.31W); interactive usage was minimal and it was not regularly reporting any data over this interval (but I would occasionally toggle the LED on and off over the network to make sure everything was still connected).
+(This was connected directly to a USB power meter and therefore would not include any losses from an inverter.)
+The device gets quite hot (95-110ºF).
+
+App/part. size:    685,392/4,128,768 bytes, 16.60%
+
+~8.4M
+
+```
+$ ls -l target/riscv32imc-unknown-none-elf/release/esp32c3-rust-mqtt
+-rwxr-xr-x 1 n8henrie staff 8707804 Aug  9 08:48 target/riscv32imc-unknown-none-elf/release/esp32c3-rust-mqtt
+```
 
 ## TODO
 
@@ -52,3 +65,5 @@ Just out of interest, my ESP32C3 running this project uses about 0.075A @ 5.24V 
 - https://github.com/siemtim-dev/embedded-mqttc
 - https://github.com/11mad11/esp32
 - https://github.com/bjoernQ/esp32-rust-nostd-temperature-logger
+
+
