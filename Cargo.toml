@@ -52,6 +52,9 @@ lto = "off"
 
 [profile.release]
 lto = "off"
+# true == 2
+# https://doc.rust-lang.org/cargo/reference/profiles.html?#debug
+debug = true
 
 [lints.clippy]
 pedantic = "warn"
