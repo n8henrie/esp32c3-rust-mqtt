@@ -14,14 +14,14 @@ embassy-net = { version = "0.7", features = [
   "tcp",
   "udp",
 ] }
-embassy-time = { version = "0.4", features = ["defmt"] }
+embassy-time = { version = "0.5", features = ["defmt"] }
 esp-backtrace = { version = "0.17", features = [
   "defmt",
   "esp32c3",
   "exception-handler",
   "panic-handler",
 ] }
-esp-hal = { version = "1.0.0-beta", features = [
+esp-hal = { version = "1.0.0-rc.0", features = [
   "defmt",
   "esp32c3",
   "unstable",
@@ -40,9 +40,9 @@ rust-mqtt = { version = "0.3", default-features = false }
 embassy-sync = { version = "0.7" }
 esp-alloc = "0.8"
 thiserror = { version = "2", default-features = false }
-embassy-futures = "0.1.1"
-defmt = "1.0.1"
-esp-bootloader-esp-idf = { version = "0.2.0", features = ["esp32c3"] }
+embassy-futures = "0.1"
+defmt = "1"
+esp-bootloader-esp-idf = { version = "0.2", features = ["esp32c3"] }
 
 [profile.dev.package.esp-wifi]
 opt-level = 3
