@@ -1,3 +1,4 @@
 /target
 exports.sh
 /.env
+/mosquitto_pass.conf
