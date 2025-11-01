@@ -110,7 +110,10 @@
               let
                 port = builtins.getEnv "ESPFLASH_PORT";
               in
-              if port == "" then abort ''port is unset -- source .env and run with "--impure"'' else port;
+              if port == "" then
+                abort ''espflash port is unset -- source .env and run with "--impure"''
+              else
+                port;
             makeApp = text: {
               type = "app";
               program = pkgs.lib.getExe (pkgs.writeShellScriptBin "run" text);
