@@ -39,11 +39,32 @@ Just out of interest, my ESP32C3 running this project uses about 0.075A @ 5.24V 
 
 **Update 20250809**: With newer code, including a regular `ping` to ensure a persistent connection to the MQTT server, my ESP32C3 used 14.82 Wh over 47h32m (avg 0.31W); interactive usage was minimal and it was not regularly reporting any data over this interval (but I would occasionally toggle the LED on and off over the network to make sure everything was still connected).
 (This was connected directly to a USB power meter and therefore would not include any losses from an inverter.)
-The device gets quite hot (95-110ºF).
+The device gets quite hot.
 
-App/part. size:    685,392/4,128,768 bytes, 16.60%
+### Temperatures
 
-~8.4M
+- Baseline:
+  - 5b4ba9c46d6839943196fded2faf1b9452af9dde
+  - MCU (sensor): 192.1ºF
+  - MCU (IR): 85ºF
+  - antenna (IR): 87ºF
+- `PowerSaveMode::Maximum`
+  - ff780f3e82cc7de8a013276e5de4df7f147570ce
+  - MCU (sensor): 189.7ºF
+  - MCU (IR): 81ºF
+  - antenna (IR): 87ºF
+- `CpuClock::_80MHz`
+  - c00f15a496f476bd4ce1d9cc83c45f2ab17fca82
+  - MCU (sensor): 185.8ºF
+  - MCU (IR): 84ºF
+  - antenna (IR): 86ºF
+- `PowerSaveMode::Maximum` && `CpuClock::_80MHz`: 97 ()
+  - 7fffe96d7275a255362c21ebbaf22f28efab9f43
+  - MCU (sensor): 186.6ºF
+  - MCU (IR): 86ºF
+  - antenna (IR): 88ºF
+
+File size:
 
 ```
 $ ls -l target/riscv32imc-unknown-none-elf/release/esp32c3-rust-mqtt
