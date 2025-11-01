@@ -76,6 +76,8 @@
             PUBLISH_TOPIC = builtins.getEnv "PUBLISH_TOPIC";
             RECEIVE_TOPIC = builtins.getEnv "RECEIVE_TOPIC";
             WILL_TOPIC = builtins.getEnv "WILL_TOPIC";
+            TEMP_TOPIC = builtins.getEnv "TEMP_TOPIC";
+            RSSI_TOPIC = builtins.getEnv "RSSI_TOPIC";
 
             MQTT_CLIENT_ID = builtins.getEnv "MQTT_CLIENT_ID";
             MQTT_USERNAME = builtins.getEnv "MQTT_USERNAME";
