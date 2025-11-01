@@ -81,9 +81,8 @@ enum Error {
 impl defmt::Format for Error {
     fn format(&self, f: defmt::Formatter) {
         match self {
-            Error::MqttNetwork => self.format(f),
+            Error::MqttNetwork | Error::Dns => self.format(f),
             Error::Mqtt(reasoncode) => defmt::write!(f, "{}", Display2Format(reasoncode)),
-            Error::Dns => self.format(f),
         }
     }
 }
