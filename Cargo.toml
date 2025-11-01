@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-embassy-executor = { version = "0.7", features = ["task-arena-size-24576"] }
+embassy-executor = { version = "0.9" }
 embassy-net = { version = "0.7", features = [
   "defmt",
   "dhcpv4",
@@ -15,36 +15,35 @@ embassy-net = { version = "0.7", features = [
   "udp",
 ] }
 embassy-time = { version = "0.5", features = ["defmt"] }
-esp-backtrace = { version = "0.17", features = [
+esp-backtrace = { version = "0.18", features = [
   "defmt",
   "esp32c3",
-  "exception-handler",
   "panic-handler",
 ] }
-esp-hal = { version = "1.0.0-rc.0", features = [
+esp-hal = { version = "1", features = [
   "defmt",
   "esp32c3",
   "unstable",
 ] }
-esp-hal-embassy = { version = "0.9", features = ["defmt", "esp32c3"] }
-esp-println = { version = "0.15", features = [
+esp-rtos = { version = "0.2", features = ["esp32c3", "embassy", "esp-radio"] }
+esp-println = { version = "0.16", features = [
   "defmt-espflash",
   "esp32c3",
   "log-04",
 ] }
-esp-wifi = { version = "0.15", features = ["defmt", "esp32c3", "wifi"] }
-heapless = "0.8"
+esp-radio = { version = "0.17", features = ["defmt", "esp32c3", "wifi"] }
+heapless = "0.9"
 static_cell = "2"
 
 rust-mqtt = { version = "0.3", default-features = false }
 embassy-sync = { version = "0.7" }
-esp-alloc = "0.8"
+esp-alloc = "0.9"
 thiserror = { version = "2", default-features = false }
 embassy-futures = "0.1"
 defmt = "1"
-esp-bootloader-esp-idf = { version = "0.2", features = ["esp32c3"] }
+esp-bootloader-esp-idf = { version = "0.4", features = ["esp32c3"] }
 
-[profile.dev.package.esp-wifi]
+[profile.dev.package.esp-radio]
 opt-level = 3
 
 [profile.dev]

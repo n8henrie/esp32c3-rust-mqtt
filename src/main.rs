@@ -13,19 +13,19 @@ use esp_backtrace as _;
 use esp_hal::{
     clock::CpuClock,
     gpio::{Input, InputConfig, Level, Output, OutputConfig, Pull},
+    interrupt::software::SoftwareInterruptControl,
     rng::Rng,
     timer::timg::TimerGroup,
     tsens::{self, TemperatureSensor},
 };
 use esp_println as _;
-use esp_wifi::{
-    EspWifiController,
-    config::PowerSaveMode,
-    wifi::{ClientConfiguration, Configuration, WifiController, WifiDevice, WifiEvent, WifiState},
-};
 
+use esp_radio::wifi::{
+    ClientConfig, Config as WifiConfig, ModeConfig, PowerSaveMode, WifiController, WifiDevice,
+    WifiEvent, WifiStaState,
+};
 use rust_mqtt::{
-    client::{client::MqttClient, client_config::ClientConfig},
+    client::{client::MqttClient, client_config::ClientConfig as MqttClientConfig},
     packet::v5::{publish_packet::QualityOfService::QoS1, reason_codes::ReasonCode},
     utils::rng_generator::CountingRng,
 };
@@ -96,31 +96,27 @@ impl From<rust_mqtt::packet::v5::reason_codes::ReasonCode> for Error {
 
 esp_bootloader_esp_idf::esp_app_desc!();
 
-#[esp_hal_embassy::main]
+#[esp_rtos::main]
 async fn main(spawner: Spawner) {
     let config = esp_hal::Config::default().with_cpu_clock(CpuClock::_80MHz);
     let peripherals = esp_hal::init(config);
 
     esp_alloc::heap_allocator!(size: 72 * 1024);
 
+    let sw_int = SoftwareInterruptControl::new(peripherals.SW_INTERRUPT);
     let timg0 = TimerGroup::new(peripherals.TIMG0);
-    let mut rng = Rng::new(peripherals.RNG);
+    esp_rtos::start(timg0.timer0, sw_int.software_interrupt0);
 
-    let esp_wifi_ctrl = &*mk_static!(
-        EspWifiController<'static>,
-        esp_wifi::init(timg0.timer0, rng).expect("couldn't init esp_wifi")
-    );
-    let (mut controller, interfaces) = esp_wifi::wifi::new(esp_wifi_ctrl, peripherals.WIFI)
-        .expect("couldn't create wifi controller");
+    let esp_radio_ctrl = &*mk_static!(esp_radio::Controller<'static>, esp_radio::init().unwrap());
+    let (mut controller, interfaces) =
+        esp_radio::wifi::new(esp_radio_ctrl, peripherals.WIFI, WifiConfig::default()).unwrap();
     controller
         .set_power_saving(PowerSaveMode::Maximum)
         .expect("couldn't set power save mode");
     let wifi_interface = interfaces.sta;
 
-    let timg1 = TimerGroup::new(peripherals.TIMG1);
-    esp_hal_embassy::init(timg1.timer0);
-
     let config = Config::dhcpv4(DhcpConfig::default());
+    let rng = Rng::new();
     let seed = (u64::from(rng.random())) << 32 | u64::from(rng.random());
 
     let (stack, runner) = embassy_net::new(
@@ -195,7 +191,7 @@ async fn main(spawner: Spawner) {
         break;
     }
 
-    let mut config = ClientConfig::new(
+    let mut config = MqttClientConfig::new(
         rust_mqtt::client::client_config::MqttVersion::MQTTv5,
         CountingRng(20000),
     );
@@ -258,7 +254,6 @@ async fn main(spawner: Spawner) {
             Display2Format(&e),
             Debug2Format(&e)
         );
-        // continue 'main;
     }
     info!("Subscribed");
 
@@ -385,7 +380,7 @@ async fn connection(mut controller: WifiController<'static>) {
     );
 
     loop {
-        if let WifiState::StaConnected = esp_wifi::wifi::wifi_state() {
+        if let WifiStaState::Connected = esp_radio::wifi::sta_state() {
             if let Ok(rssi) = controller.rssi() {
                 CURRENT_RSSI.store(rssi, Ordering::Relaxed);
             }
@@ -397,14 +392,12 @@ async fn connection(mut controller: WifiController<'static>) {
             .await;
         }
         if !matches!(controller.is_started(), Ok(true)) {
-            let client_config = Configuration::Client(ClientConfiguration {
-                ssid: SSID.into(),
-                password: PASSWORD.into(),
-                ..Default::default()
-            });
-            controller
-                .set_configuration(&client_config)
-                .expect("couldn't set controller configuration");
+            let client_config = ModeConfig::Client(
+                ClientConfig::default()
+                    .with_ssid(SSID.into())
+                    .with_password(PASSWORD.into()),
+            );
+            controller.set_config(&client_config).unwrap();
             info!("Starting wifi");
             controller
                 .start_async()
