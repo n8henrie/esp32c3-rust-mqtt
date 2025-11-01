@@ -20,6 +20,7 @@ use esp_hal::{
 use esp_println as _;
 use esp_wifi::{
     EspWifiController,
+    config::PowerSaveMode,
     wifi::{ClientConfiguration, Configuration, WifiController, WifiDevice, WifiEvent, WifiState},
 };
 
@@ -97,7 +98,7 @@ esp_bootloader_esp_idf::esp_app_desc!();
 
 #[esp_hal_embassy::main]
 async fn main(spawner: Spawner) {
-    let config = esp_hal::Config::default().with_cpu_clock(CpuClock::max());
+    let config = esp_hal::Config::default().with_cpu_clock(CpuClock::_80MHz);
     let peripherals = esp_hal::init(config);
 
     esp_alloc::heap_allocator!(size: 72 * 1024);
@@ -109,8 +110,11 @@ async fn main(spawner: Spawner) {
         EspWifiController<'static>,
         esp_wifi::init(timg0.timer0, rng).expect("couldn't init esp_wifi")
     );
-    let (controller, interfaces) = esp_wifi::wifi::new(esp_wifi_ctrl, peripherals.WIFI)
+    let (mut controller, interfaces) = esp_wifi::wifi::new(esp_wifi_ctrl, peripherals.WIFI)
         .expect("couldn't create wifi controller");
+    controller
+        .set_power_saving(PowerSaveMode::Maximum)
+        .expect("couldn't set power save mode");
     let wifi_interface = interfaces.sta;
 
     let timg1 = TimerGroup::new(peripherals.TIMG1);
