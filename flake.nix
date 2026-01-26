@@ -15,7 +15,7 @@
       rust-overlay,
     }:
     let
-      inherit ((builtins.fromTOML (builtins.readFile ./Cargo.toml)).package) name;
+      inherit ((fromTOML (builtins.readFile ./Cargo.toml)).package) name;
 
       systems = [
         "x86_64-darwin"
@@ -53,7 +53,7 @@
           default = self.outputs.packages.${system}.${name};
           ${name} = rustPlatform.buildRustPackage {
             inherit name;
-            inherit ((builtins.fromTOML (builtins.readFile ./Cargo.toml)).package) version;
+            inherit ((fromTOML (builtins.readFile ./Cargo.toml)).package) version;
             src = pkgs.lib.cleanSource ./.;
             cargoLock.lockFile = ./Cargo.lock;
             RUSTFLAGS = [
