@@ -2,6 +2,7 @@
 name = "esp32c3-rust-mqtt"
 version = "0.1.0"
 edition = "2024"
+description = "ESP32C3 MQTT client in rust"
 
 [dependencies]
 embassy-executor = { version = "0.9" }
@@ -20,7 +21,7 @@ esp-backtrace = { version = "0.18", features = [
   "esp32c3",
   "panic-handler",
 ] }
-esp-hal = { version = "1", features = [
+esp-hal = { version = "~1.0", features = [
   "defmt",
   "esp32c3",
   "unstable",
@@ -57,3 +58,25 @@ debug = true
 
 [lints.clippy]
 pedantic = "warn"
+
+[dev-dependencies]
+addr2line = "=0.25.1"
+dlmalloc = "=0.2.13"
+foldhash = "=0.2.0"
+fortanix-sgx-abi = "=0.6.1"
+getopts = "=0.2.24"
+hermit-abi = "=0.5.2"
+libc = "=0.2.185"
+memchr = "=2.7.6"
+miniz_oxide = "=0.8.9"
+moto-rt = "=0.16.0"
+object = "=0.37.3"
+r-efi = "=5.3.0"
+r-efi-alloc = "=2.1.0"
+rustc-demangle = "=0.1.27"
+rustc-literal-escaper = "=0.0.7"
+unwinding = "=0.2.8"
+vex-sdk = "=0.27.1"
+wasip1 = "=1.0.0"
+wasip2 = "=1.0.3"
+wasip3 = "=0.6.0"
