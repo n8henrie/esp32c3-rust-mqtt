@@ -15,33 +15,34 @@ rustPlatform.buildRustPackage {
   cargoLock.lockFile = ./Cargo.lock;
 
   nativeBuildInputs = [ lld ];
-  env = {
-    RUSTC_BOOTSTRAP = "1";
-    RUST_SRC_PATH = "${rustc.src}/library";
+  env =
+    let
+      requiredEnvVar =
+        var:
+        let
+          val = builtins.getEnv var;
+        in
+        if val == "" then throw "required environment variable ${var} not found" else val;
+    in
+    {
+      RUSTC_BOOTSTRAP = "1";
+      RUST_SRC_PATH = "${rustc.src}/library";
 
-    RUSTFLAGS = lib.concatStringsSep " " [
-      "-C link-arg=-Tlinkall.x"
-      "-C force-frame-pointers"
-      "-C link-arg=-Tdefmt.x"
+      SSID = requiredEnvVar "SSID";
+      PASSWORD = requiredEnvVar "PASSWORD";
 
-      "-C debuginfo=2"
-      "-C strip=none"
-    ];
-    SSID = builtins.getEnv "SSID";
-    PASSWORD = builtins.getEnv "PASSWORD";
+      MQTT_HOST = requiredEnvVar "MQTT_HOST";
+      MQTT_PORT = requiredEnvVar "MQTT_PORT";
 
-    MQTT_HOST = builtins.getEnv "MQTT_HOST";
-    MQTT_PORT = builtins.getEnv "MQTT_PORT";
+      MQTT_CLIENT_ID = requiredEnvVar "MQTT_CLIENT_ID";
+      MQTT_USERNAME = requiredEnvVar "MQTT_USERNAME";
+      MQTT_PASSWORD = requiredEnvVar "MQTT_PASSWORD";
 
-    MQTT_CLIENT_ID = builtins.getEnv "MQTT_CLIENT_ID";
-    MQTT_USERNAME = builtins.getEnv "MQTT_USERNAME";
-    MQTT_PASSWORD = builtins.getEnv "MQTT_PASSWORD";
+      MQTT_TOPIC_PREFIX = requiredEnvVar "MQTT_TOPIC_PREFIX";
+      DEVICE_NAME = requiredEnvVar "DEVICE_NAME";
 
-    MQTT_TOPIC_PREFIX = builtins.getEnv "MQTT_TOPIC_PREFIX";
-    DEVICE_NAME = builtins.getEnv "DEVICE_NAME";
-
-    DEFMT_LOG = "debug";
-  };
+      DEFMT_LOG = "debug";
+    };
 
   auditable = false;
   doCheck = false;
