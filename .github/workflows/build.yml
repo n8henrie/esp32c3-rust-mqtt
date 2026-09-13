@@ -11,4 +11,15 @@ jobs:
       - uses: actions/checkout@v4
       - uses: DeterminateSystems/nix-installer-action@v11
       - name: Build package
-        run: SSID=foo PASSWORD=bar nix build --impure
+        run: |
+          export \
+            SSID=myssid \
+            PASSWORD=mypassword \
+            MQTT_HOST=mqtt_host \
+            MQTT_PORT=mqtt_port \
+            MQTT_CLIENT_ID=mqtt_client_id \
+            MQTT_USERNAME=mqtt_username \
+            MQTT_PASSWORD=mqtt_password \
+            MQTT_TOPIC_PREFIX=mqtt_topic_prefix \
+            DEVICE_NAME=device-name
+          nix build --impure
