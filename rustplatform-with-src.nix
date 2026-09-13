@@ -15,8 +15,8 @@ makeRustPlatform {
       name = "rust-${rustc-unwrapped.version}-sysroot-with-src";
       paths = [ rustc-unwrapped ];
       postBuild = ''
-        mkdir -p $out/lib/rustlib/src
-        ln -s ${rustPlatform.rustcSrc} $out/lib/rustlib/src/rust
+        mkdir -p $out/lib/rustlib/src/rust
+        ln -s ${rustPlatform.rustLibSrc} $out/lib/rustlib/src/rust/library
       '';
     };
   };
