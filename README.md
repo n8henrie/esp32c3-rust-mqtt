@@ -86,5 +86,4 @@ $ ls -l target/riscv32imc-unknown-none-elf/release/esp32c3-rust-mqtt
 - https://github.com/siemtim-dev/embedded-mqttc
 - https://github.com/11mad11/esp32
 - https://github.com/bjoernQ/esp32-rust-nostd-temperature-logger
-
-
+- https://github.com/rbasoalto/whitenoise

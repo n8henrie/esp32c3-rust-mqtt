@@ -5,7 +5,7 @@
   lld,
 }:
 let
-  inherit ((fromTOML (builtins.readFile ./Cargo.toml)).package) name version description;
+  inherit ((lib.importTOML ./Cargo.toml).package) name version description;
 in
 
 rustPlatform.buildRustPackage {
@@ -33,15 +33,12 @@ rustPlatform.buildRustPackage {
     MQTT_HOST = builtins.getEnv "MQTT_HOST";
     MQTT_PORT = builtins.getEnv "MQTT_PORT";
 
-    PUBLISH_TOPIC = builtins.getEnv "PUBLISH_TOPIC";
-    RECEIVE_TOPIC = builtins.getEnv "RECEIVE_TOPIC";
-    WILL_TOPIC = builtins.getEnv "WILL_TOPIC";
-    TEMP_TOPIC = builtins.getEnv "TEMP_TOPIC";
-    RSSI_TOPIC = builtins.getEnv "RSSI_TOPIC";
-
     MQTT_CLIENT_ID = builtins.getEnv "MQTT_CLIENT_ID";
     MQTT_USERNAME = builtins.getEnv "MQTT_USERNAME";
     MQTT_PASSWORD = builtins.getEnv "MQTT_PASSWORD";
+
+    MQTT_TOPIC_PREFIX = builtins.getEnv "MQTT_TOPIC_PREFIX";
+    DEVICE_NAME = builtins.getEnv "DEVICE_NAME";
 
     DEFMT_LOG = "debug";
   };
