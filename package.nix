@@ -1,6 +1,5 @@
 {
   lib,
-  rustc,
   rustPlatform,
   lld,
 }:
@@ -26,7 +25,6 @@ rustPlatform.buildRustPackage {
     in
     {
       RUSTC_BOOTSTRAP = "1";
-      RUST_SRC_PATH = "${rustc.src}/library";
 
       SSID = requiredEnvVar "SSID";
       PASSWORD = requiredEnvVar "PASSWORD";
