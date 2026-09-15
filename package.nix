@@ -46,7 +46,17 @@ rustPlatform.buildRustPackage {
   doCheck = false;
   dontFixup = true;
 
-  buildPhase = "cargo build --frozen --release --target riscv32imc-unknown-none-elf -Zbuild-std=core,alloc";
+  buildPhase = ''
+    runHook preBuild
+
+    cargo build --release \
+      --frozen \
+      -Zbuild-std=core,alloc \
+      --jobs "$NIX_BUILD_CORES"
+
+    runHook postBuild
+  '';
+
   installPhase = ''
     runHook preInstall
     install -Dm755  "target/riscv32imc-unknown-none-elf/release/${name}" "$out/bin/${name}"
